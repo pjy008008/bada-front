@@ -1365,7 +1365,12 @@ function titleForPage() {
           v-for="(spot, index) in homePreview"
           :key="spot.id"
           class="spot-card"
+          role="button"
+          tabindex="0"
           :style="{ animationDelay: `${index * 60}ms` }"
+          @click="navigate(`/spot/${spot.id}`)"
+          @keydown.enter.prevent="navigate(`/spot/${spot.id}`)"
+          @keydown.space.prevent="navigate(`/spot/${spot.id}`)"
           @mouseenter="hoveredHomeSpotId = spot.id"
           @mouseleave="hoveredHomeSpotId = undefined"
           @focusin="hoveredHomeSpotId = spot.id"
@@ -1389,7 +1394,6 @@ function titleForPage() {
               <strong>{{ value }}</strong>
             </div>
           </div>
-          <button class="link-button" type="button" @click="navigate(`/spot/${spot.id}`)">상세 정보 보기</button>
         </article>
       </div>
       <div class="center-action">
