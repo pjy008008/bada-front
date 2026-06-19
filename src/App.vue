@@ -78,6 +78,7 @@ const allRegion = ref<string | undefined>()
 const homeExperience = ref<ExperienceKey>('travel')
 const homeSort = ref<SortKey>('index')
 const hoveredHomeSpotId = ref<string | undefined>()
+const openDateMenu = ref<'home' | 'all' | null>(null)
 const selectedDate = ref(defaultDate())
 const listDate = ref(defaultDate())
 const geo = reactive<{ loc: { lat: number; lon: number } | null; loading: boolean; error: string | null }>({
@@ -258,6 +259,12 @@ function navigate(path: string) {
 
 function goAll(exp = homeExperience.value, sort = homeSort.value) {
   navigate(`/all?exp=${exp}&sort=${sort}`)
+}
+
+function selectDate(scope: 'home' | 'all', value: string) {
+  if (scope === 'home') selectedDate.value = value
+  else listDate.value = value
+  openDateMenu.value = null
 }
 
 function updateAllUrl() {
@@ -1320,13 +1327,30 @@ function titleForPage() {
           <h2>어떤 해양 체험을 찾으시나요?</h2>
           <p>{{ EXPERIENCE_DESC[homeExperience] }}</p>
         </div>
-        <label class="date-select">
+        <div class="date-select">
           <span>날짜 선택</span>
-          <select v-model="selectedDate">
-            <option v-for="option in dateOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-          </select>
+          <div class="date-dropdown dashboard-date" :class="{ open: openDateMenu === 'home' }">
+            <button class="date-trigger" type="button" :aria-expanded="openDateMenu === 'home'" @click="openDateMenu = openDateMenu === 'home' ? null : 'home'" @keydown.escape="openDateMenu = null">
+              <span>{{ homeDateLabel }}</span>
+              <strong aria-hidden="true">⌄</strong>
+            </button>
+            <div v-if="openDateMenu === 'home'" class="date-menu" role="listbox">
+              <button
+                v-for="option in dateOptions"
+                :key="option.value"
+                class="date-option"
+                :class="{ selected: option.value === selectedDate }"
+                type="button"
+                role="option"
+                :aria-selected="option.value === selectedDate"
+                @click="selectDate('home', option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
           <small>{{ homeSpots.length }}개 스팟 분석 중</small>
-        </label>
+        </div>
         <div class="tabs">
           <button v-for="exp in VALID_EXP" :key="exp" :class="{ active: exp === homeExperience }" type="button" @click="homeExperience = exp">
             {{ EXPERIENCE_LABELS[exp] }}
@@ -1442,9 +1466,26 @@ function titleForPage() {
             <section>
               <div class="toolbar">
                 <input v-model="allQuery" type="search" placeholder="스팟 또는 지역 검색" @input="onAllQueryInput" />
-                <select v-model="listDate">
-                  <option v-for="option in dateOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                </select>
+                <div class="date-dropdown toolbar-date" :class="{ open: openDateMenu === 'all' }">
+                  <button class="date-trigger" type="button" :aria-expanded="openDateMenu === 'all'" @click="openDateMenu = openDateMenu === 'all' ? null : 'all'" @keydown.escape="openDateMenu = null">
+                    <span>{{ listDateLabel }}</span>
+                    <strong aria-hidden="true">⌄</strong>
+                  </button>
+                  <div v-if="openDateMenu === 'all'" class="date-menu" role="listbox">
+                    <button
+                      v-for="option in dateOptions"
+                      :key="option.value"
+                      class="date-option"
+                      :class="{ selected: option.value === listDate }"
+                      type="button"
+                      role="option"
+                      :aria-selected="option.value === listDate"
+                      @click="selectDate('all', option.value)"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </div>
+                </div>
                 <div class="sort-controls">
                   <button v-for="sort in VALID_SORT" :key="sort" :class="{ active: sort === allSort }" type="button" @click="setAllSort(sort)">
                     {{ SORT_LABELS[sort] }}
