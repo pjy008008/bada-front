@@ -1287,7 +1287,7 @@ function titleForPage() {
             <span>{{ user.email }}</span>
           </div>
           <button type="button" @click="navigate('/settings')">설정</button>
-          <button type="button" @click="navigate('/me')">내 글 보기</button>
+          <button type="button" @click="navigate('/me')">내 활동 보기</button>
           <button type="button" @click="signOut">로그아웃</button>
         </div>
       </div>
