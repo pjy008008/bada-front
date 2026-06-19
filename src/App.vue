@@ -1052,7 +1052,7 @@ function loadUser() {
     user.loggedIn = !!saved.loggedIn
     user.name = saved.name || user.name
     user.email = saved.email || user.email
-    user.avatarUrl = saved.avatarUrl || ''
+    user.avatarUrl = normalizeProfileImageUrl(saved.avatarUrl)
     user.createdAt = saved.createdAt || ''
     settingsForm.displayName = user.name
   } catch {
@@ -1070,7 +1070,7 @@ function applyUser(apiUser: ApiUser, accessToken?: string) {
   user.loggedIn = true
   user.email = apiUser.email
   user.name = apiUser.nickname
-  user.avatarUrl = apiUser.profileImageUrl || ''
+  user.avatarUrl = normalizeProfileImageUrl(apiUser.profileImageUrl)
   user.createdAt = apiUser.createdAt || user.createdAt || new Date().toISOString()
   settingsForm.displayName = user.name
   saveUser()
@@ -1199,27 +1199,38 @@ function onAvatarFile(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
-  if (!file || !file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) return
+  if (!file) return
+  if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+    showToast('이미지는 5MB 이하의 이미지 파일만 업로드할 수 있습니다.', 'error')
+    return
+  }
   if (user.loggedIn) {
     void userApi.uploadImage(file)
       .then((result) => {
-        if (result.profileImageUrl) {
-          user.avatarUrl = result.profileImageUrl
+        const profileImageUrl = normalizeProfileImageUrl(result.profileImageUrl)
+        if (profileImageUrl) {
+          user.avatarUrl = profileImageUrl
           saveUser()
+          showToast('프로필 이미지가 변경되었습니다.')
         }
       })
       .catch((error) => {
         apiState.error = apiErrorMessage(error)
+        showToast(apiErrorMessage(error), 'error')
       })
   }
   const reader = new FileReader()
   reader.onload = () => {
-    if (!user.avatarUrl.startsWith('http')) {
+    if (!user.avatarUrl || user.avatarUrl.startsWith('data:')) {
       user.avatarUrl = String(reader.result || '')
       saveUser()
     }
   }
   reader.readAsDataURL(file)
+}
+
+function normalizeProfileImageUrl(value?: string | null) {
+  return value ? normalizeImageUrl(value) ?? '' : ''
 }
 
 function fmt(date: string) {
@@ -1700,8 +1711,10 @@ function titleForPage() {
           <h2>프로필</h2>
           <div class="profile-editor">
             <div class="avatar-large">
-              <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" />
-              <span v-else>{{ user.name.charAt(0).toUpperCase() }}</span>
+              <div class="avatar-large-frame">
+                <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" />
+                <span v-else>{{ user.name.charAt(0).toUpperCase() }}</span>
+              </div>
               <label aria-label="프로필 이미지 변경">
                 <input type="file" accept="image/*" @change="onAvatarFile" />
                 <span>카메라</span>
