@@ -1280,6 +1280,27 @@ textarea:focus {
   border-radius: 12px;
 }
 
+.comment-toggle {
+  width: fit-content;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--primary);
+  padding: 8px 13px;
+  font-size: 13px;
+  font-weight: 900;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.comment-toggle:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.14);
+  transform: translateY(-1px);
+}
+
 .comments {
   display: grid;
   gap: 14px;

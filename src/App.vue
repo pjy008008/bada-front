@@ -50,6 +50,7 @@ type CommunityPost = {
   authorEmail?: string
   likeCount: number
   liked: boolean
+  commentCount: number
   comments: CommunityComment[]
 }
 type CommunityComment = {
@@ -694,6 +695,7 @@ function loadCommunity() {
       author: '익명',
       likeCount: 0,
       liked: false,
+      commentCount: 0,
       comments: [],
     },
     {
@@ -707,6 +709,7 @@ function loadCommunity() {
       author: '익명',
       likeCount: 0,
       liked: false,
+      commentCount: 0,
       comments: [],
     },
   ]
@@ -714,9 +717,11 @@ function loadCommunity() {
 }
 
 function normalizeStoredPost(post: CommunityPost): CommunityPost {
+  const comments = post.comments ?? []
   return {
     ...post,
-    comments: post.comments ?? [],
+    commentCount: post.commentCount ?? comments.length,
+    comments,
   }
 }
 
@@ -835,6 +840,7 @@ async function submitPost() {
       authorEmail: user.email,
       likeCount: 0,
       liked: false,
+      commentCount: 0,
       comments: [],
     })
   }
@@ -877,6 +883,7 @@ async function submitComment(post: CommunityPost) {
     })
   }
   commentDrafts[post.id] = ''
+  post.commentCount = post.comments.length
   saveCommunity()
   showToast('댓글이 등록되었습니다.')
 }
@@ -943,6 +950,7 @@ async function deleteComment(post: CommunityPost, commentId: string) {
     apiState.error = apiErrorMessage(error)
   }
   post.comments = post.comments.filter((comment) => comment.id !== commentId)
+  post.commentCount = post.comments.length
   saveCommunity()
   showToast('댓글이 삭제되었습니다.')
 }
@@ -995,6 +1003,7 @@ function mapPost(post: ApiPost, fallbackSpotId: string): CommunityPost {
     authorEmail: writer?.email,
     likeCount: post.likeCount ?? 0,
     liked: post.liked ?? false,
+    commentCount: post.commentCount ?? post.comments?.length ?? 0,
     comments: post.comments?.map(mapComment) ?? [],
   }
 }
@@ -1583,7 +1592,9 @@ function titleForPage() {
           <div v-if="post.imageUrls.length" class="post-images">
             <img v-for="url in post.imageUrls" :key="url" :src="url" alt="" loading="lazy" />
           </div>
-          <button class="link-button" type="button" @click="togglePost(post)">{{ openPostId === post.id ? '댓글 숨기기' : '댓글 보기 / 작성' }}</button>
+          <button class="comment-toggle" type="button" @click="togglePost(post)">
+            {{ openPostId === post.id ? '댓글 숨기기' : `댓글 보기 (${post.commentCount})` }}
+          </button>
           <div v-if="openPostId === post.id" class="comments">
             <p v-if="!post.comments.length" class="muted">아직 댓글이 없습니다.</p>
             <div v-for="comment in post.comments" :key="comment.id" class="comment">
