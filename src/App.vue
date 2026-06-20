@@ -1746,7 +1746,35 @@ function titleForPage() {
         <h1>{{ authMode === 'signin' ? '로그인' : '회원가입' }}</h1>
         <p>커뮤니티에 글과 댓글을 남기려면 로그인이 필요합니다.</p>
 
-        <button class="btn oauth" type="button" @click="mockOAuth('Google')">Google로 계속하기</button>
+        <div class="oauth-buttons">
+          <button class="btn oauth google" type="button" @click="mockOAuth('Google')">
+            <span class="oauth-icon google-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path fill="#4285f4" d="M21.6 12.2c0-.7-.1-1.3-.2-1.9H12v3.6h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.8 3-4.3 3-7.2Z" />
+                <path fill="#34a853" d="M12 22c2.7 0 5-0.9 6.6-2.6l-3.2-2.5c-.9.6-2 .9-3.4.9-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22Z" />
+                <path fill="#fbbc05" d="M6.4 13.7a6 6 0 0 1 0-3.4V7.7H3.1a10 10 0 0 0 0 8.6l3.3-2.6Z" />
+                <path fill="#ea4335" d="M12 6.2c1.5 0 2.8.5 3.8 1.5l2.9-2.9A9.7 9.7 0 0 0 12 2a10 10 0 0 0-8.9 5.7l3.3 2.6C7.2 8 9.4 6.2 12 6.2Z" />
+              </svg>
+            </span>
+            Google로 계속하기
+          </button>
+          <button class="btn oauth naver" type="button" @click="mockOAuth('Naver')">
+            <span class="oauth-icon naver-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M15.2 12.4 8.5 3H3v18h5.8v-9.4l6.7 9.4H21V3h-5.8v9.4Z" />
+              </svg>
+            </span>
+            네이버로 계속하기
+          </button>
+          <button class="btn oauth kakao" type="button" @click="mockOAuth('Kakao')">
+            <span class="oauth-icon kakao-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 4C6.7 4 2.4 7.3 2.4 11.4c0 2.6 1.8 4.9 4.4 6.2l-.8 3c-.1.4.3.7.6.5l3.6-2.4c.6.1 1.2.2 1.8.2 5.3 0 9.6-3.3 9.6-7.5S17.3 4 12 4Z" />
+              </svg>
+            </span>
+            카카오로 계속하기
+          </button>
+        </div>
 
         <div class="divider"><span>또는 이메일</span></div>
 
