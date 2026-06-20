@@ -100,6 +100,7 @@ const postImageFiles = ref<File[]>([])
 const postImageInput = ref<HTMLInputElement | null>(null)
 const commentDrafts = reactive<Record<string, string>>({})
 const openPostId = ref<string | null>(null)
+const selectedImageUrl = ref('')
 const favoriteIds = ref<Set<string>>(new Set())
 const favoriteSpots = ref<Spot[]>([])
 const headerQuery = ref('')
@@ -323,6 +324,14 @@ function showToast(message: string, tone: Toast['tone'] = 'success') {
   toastTimer = window.setTimeout(() => {
     toast.show = false
   }, 3000)
+}
+
+function openImageModal(url: string) {
+  selectedImageUrl.value = url
+}
+
+function closeImageModal() {
+  selectedImageUrl.value = ''
 }
 
 async function loadHomeData() {
@@ -1295,6 +1304,11 @@ function titleForPage() {
       </div>
     </Transition>
 
+    <div v-if="selectedImageUrl" class="image-modal" role="dialog" aria-modal="true" aria-label="게시물 이미지 크게 보기" @click.self="closeImageModal">
+      <button class="image-modal-close" type="button" aria-label="닫기" @click="closeImageModal">×</button>
+      <img :src="selectedImageUrl" alt="" />
+    </div>
+
     <nav class="site-header">
       <button class="brand" type="button" @click="navigate('/')">MARINEPRO.KR</button>
       <div class="nav-links">
@@ -1649,7 +1663,9 @@ function titleForPage() {
           </div>
           <p>{{ post.content }}</p>
           <div v-if="post.imageUrls.length" class="post-images" :class="`count-${Math.min(post.imageUrls.length, 4)}`">
-            <img v-for="url in post.imageUrls" :key="url" :src="url" alt="" loading="lazy" />
+            <button v-for="url in post.imageUrls" :key="url" class="post-image-button" type="button" aria-label="이미지 크게 보기" @click="openImageModal(url)">
+              <img :src="url" alt="" loading="lazy" />
+            </button>
           </div>
           <button class="comment-toggle" type="button" @click="togglePost(post)">
             {{ openPostId === post.id ? '댓글 숨기기' : `댓글 보기 (${post.commentCount})` }}
