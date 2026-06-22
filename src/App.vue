@@ -193,7 +193,7 @@ onMounted(() => {
   loadCommunity()
   applyRoute()
   window.addEventListener('popstate', applyRoute)
-  void restoreSession()
+  void initializeSession()
   void loadHomeData()
   void loadAllData()
 })
@@ -245,7 +245,7 @@ function applyRoute() {
   } else if (parts[0] === 'spot' && parts[1]) {
     page.value = 'spot'
     spotId.value = parts[1]
-  } else if (parts[0] === 'auth') {
+  } else if (parts[0] === 'auth' || (parts[0] === 'oauth' && parts[1] === 'callback')) {
     page.value = 'auth'
   } else if (parts[0] === 'me') {
     page.value = 'me'
@@ -500,6 +500,30 @@ async function restoreSession() {
     applyUser(await userApi.me())
   } catch {
     clearAccessToken()
+  }
+}
+
+async function initializeSession() {
+  if (window.location.pathname === '/oauth/callback') {
+    await completeOAuthLogin()
+    return
+  }
+  await restoreSession()
+}
+
+async function completeOAuthLogin() {
+  authMessage.value = ''
+  try {
+    const result = await authApi.refresh()
+    applyUser(result.user, result.accessToken)
+    history.replaceState(null, '', '/')
+    applyRoute()
+    showToast('소셜 로그인이 완료되었습니다.')
+  } catch (error) {
+    clearAccessToken()
+    authMessage.value = `소셜 로그인에 실패했습니다. ${apiErrorMessage(error)}`
+    history.replaceState(null, '', '/auth')
+    applyRoute()
   }
 }
 
