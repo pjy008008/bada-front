@@ -48,6 +48,7 @@ apiClient.interceptors.response.use(
 export type ApiExperience = "seaTravel" | "swimming" | "mudflat" | "scuba" | "fishing" | "surfing";
 export type ApiSort = "index" | "community" | "nearby";
 export type AppSort = ApiSort | "distance";
+type ApiTimeSlot = "오전" | "오후";
 
 export interface ApiUser {
   userId?: number | string;
@@ -119,6 +120,10 @@ export function toApiExperience(experience: ExperienceKey): ApiExperience {
 
 export function toApiSort(sort: AppSort): ApiSort {
   return sort === "distance" ? "nearby" : sort;
+}
+
+function currentApiTimeSlot(now = new Date()): ApiTimeSlot {
+  return now.getHours() < 12 ? "오전" : "오후";
 }
 
 export function getAccessToken() {
@@ -271,7 +276,7 @@ export const spotApi = {
   },
   async markers(experience: ExperienceKey, targetDate: string) {
     const { data } = await apiClient.get("/dashboard/markers", {
-      params: { experience: toApiExperience(experience), targetDate },
+      params: { experience: toApiExperience(experience), targetDate, timeSlot: currentApiTimeSlot() },
     });
     return extractList<Record<string, unknown>>(data);
   },

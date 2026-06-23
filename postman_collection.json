@@ -202,7 +202,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/dashboard/markers?experience=seaTravel&targetDate=2025-09-04",
+              "raw": "{{baseUrl}}/dashboard/markers?experience=seaTravel&targetDate=2025-09-04&timeSlot=오전",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -218,10 +218,14 @@
                 {
                   "key": "targetDate",
                   "value": "2025-09-04"
+                },
+                {
+                  "key": "timeSlot",
+                  "value": "오전"
                 }
               ]
             },
-            "description": "선택한 체험의 전국 모든 스팟 좌표를 조회합니다.\n\n프론트 지도 화면에서 마커를 렌더링할 때 사용합니다.\n\n## Query Params\n\n- experience: 체험 종류\n    \n    - seaTravel\n        \n    - swimming\n        \n    - mudflat\n        \n    - scuba\n        \n    - fishing\n        \n    - surfing\n        \n- targetDate: 조회할 예측 날짜. 형식은 YYYY-MM-DD\n    \n\n## Response\n\n- spotId: 스팟 ID\n    \n- spotName: 스팟 이름\n    \n- lat: 위도\n    \n- lng: 경도\n    \n- totalIndex: 종합 지수\n    \n- experience: 체험 종류\n    \n\n## Error\n\n- 400 Bad Request: 지원하지 않는 experience 또는 잘못된 targetDate 형식"
+            "description": "선택한 체험·날짜·시간대의 전국 스팟 좌표를 조회합니다.\n\n프론트 지도 화면에서 마커를 렌더링할 때 사용합니다.\n\n## Query Params\n\n- experience: 체험 종류\n    \n    - seaTravel\n        \n    - swimming\n        \n    - mudflat\n        \n    - scuba\n        \n    - fishing\n        \n    - surfing\n        \n- targetDate: 조회할 예측 날짜. 형식은 YYYY-MM-DD\n    \n- timeSlot: 오전, 오후, 일. 생략하면 해당 날짜의 대표 시간대를 반환\n    \n요청 시간대 데이터가 없는 장소는 제외됩니다.\n\n## Response\n\n- spotId: 스팟 ID\n    \n- spotName: 스팟 이름\n    \n- lat: 위도\n    \n- lng: 경도\n    \n- timeSlot: 요청한 시간대\n    \n- totalIndex: 종합 지수\n    \n- experience: 체험 종류\n    \n\n## Error\n\n- 400 Bad Request: 지원하지 않는 experience, timeSlot 또는 잘못된 targetDate 형식"
           },
           "response": []
         },
