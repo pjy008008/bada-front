@@ -626,6 +626,13 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.time-slot-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .section-head.compact {
   margin: 0 0 16px;
 }

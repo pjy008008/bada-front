@@ -1497,7 +1497,8 @@ function titleForPage() {
           <p>{{ homeSpots.length }}개 스팟 · 상위 {{ homePreview.length }}개 표시</p>
         </div>
         <div class="list-actions">
-          <div v-if="homeTimeSlotSelectable" class="sort-controls time-slot-controls" aria-label="시간대 선택">
+          <small v-if="homeExperience === 'mudflat'" class="time-slot-note">갯벌체험의 경우 오전/오후 선택이 제공되지 않습니다</small>
+          <div v-else-if="homeTimeSlotSelectable" class="sort-controls time-slot-controls" aria-label="시간대 선택">
             <button v-for="timeSlot in VALID_TIME_SLOTS" :key="timeSlot" :class="{ active: timeSlot === homeTimeSlot }" type="button" @click="setHomeTimeSlot(timeSlot)">
               {{ timeSlot }}
             </button>
@@ -1667,7 +1668,8 @@ function titleForPage() {
           <p>{{ currentSpot.lat.toFixed(4) }}°N · {{ currentSpot.lot.toFixed(4) }}°E</p>
         </div>
         <div class="detail-actions">
-          <div v-if="spotTimeSlotSelectable" class="sort-controls time-slot-controls" aria-label="시간대 선택">
+          <small v-if="currentSpot.experience === 'mudflat'" class="time-slot-note">갯벌체험의 경우 오전/오후 선택이 제공되지 않습니다</small>
+          <div v-else-if="spotTimeSlotSelectable" class="sort-controls time-slot-controls" aria-label="시간대 선택">
             <button v-for="timeSlot in VALID_TIME_SLOTS" :key="timeSlot" :class="{ active: timeSlot === spotTimeSlot }" type="button" @click="setSpotTimeSlot(timeSlot)">
               {{ timeSlot }}
             </button>
