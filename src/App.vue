@@ -24,12 +24,14 @@ import {
   API_BASE_URL,
   authApi,
   clearAccessToken,
+  currentApiTimeSlot,
   getAccessToken,
   normalizeSpot,
   postApi,
   setAccessToken,
   spotApi,
   userApi,
+  type ApiTimeSlot,
   type ApiComment,
   type ApiPost,
   type ApiUser,
@@ -67,6 +69,7 @@ type Toast = {
 
 const VALID_EXP: ExperienceKey[] = ['travel', 'surfing', 'fishing', 'scuba', 'mudflat', 'swimming']
 const VALID_SORT: SortKey[] = ['index', 'community', 'distance']
+const VALID_TIME_SLOTS: ApiTimeSlot[] = ['오전', '오후']
 
 const page = ref<Page>('home')
 const spotId = ref('')
@@ -77,6 +80,7 @@ const allRegion = ref<string | undefined>()
 
 const homeExperience = ref<ExperienceKey>('travel')
 const homeSort = ref<SortKey>('index')
+const homeTimeSlot = ref<ApiTimeSlot>(currentApiTimeSlot())
 const hoveredHomeSpotId = ref<string | undefined>()
 const openDateMenu = ref<'home' | 'all' | null>(null)
 const selectedDate = ref(defaultDate())
@@ -202,7 +206,7 @@ watch([page, spotId, allExp, allSort, allQuery, allRegion], () => {
   document.title = titleForPage()
 })
 
-watch([homeExperience, selectedDate, homeSort], () => {
+watch([homeExperience, selectedDate, homeSort, homeTimeSlot], () => {
   void loadHomeData()
 })
 
@@ -350,14 +354,14 @@ async function loadHomeData() {
   try {
     const [cards, markers] = await Promise.all([
       spotApi.dashboard(homeExperience.value, selectedDate.value, homeSort.value, 6, geo.loc),
-      spotApi.markers(homeExperience.value, selectedDate.value),
+      spotApi.markers(homeExperience.value, selectedDate.value, homeTimeSlot.value),
     ])
     if (cards.length) {
-      homeCards[homeExperience.value] = await normalizeSpotRows(cards, homeExperience.value, selectedDate.value)
+      homeCards[homeExperience.value] = await normalizeSpotRows(cards, homeExperience.value, selectedDate.value, homeTimeSlot.value)
       syncFavoriteIds(homeCards[homeExperience.value])
     }
     if (markers.length) {
-      remoteSpots[homeExperience.value] = markers.map((row) => normalizeSpot(row, fallbackFor(row, homeExperience.value)))
+      remoteSpots[homeExperience.value] = markers.map((row) => normalizeSpot(row, fallbackFor(row, homeExperience.value), homeTimeSlot.value))
     } else if (!remoteSpots[homeExperience.value].length) {
       const rows = await spotApi.list(homeExperience.value, selectedDate.value, homeSort.value, '', geo.loc)
       if (rows.length) remoteSpots[homeExperience.value] = rows.map((row) => normalizeSpot(row, fallbackFor(row, homeExperience.value)))
@@ -393,14 +397,14 @@ async function loadSpotList(exp: ExperienceKey, targetDate: string, sort: SortKe
   }
 }
 
-async function normalizeSpotRows(rows: Record<string, unknown>[], exp: ExperienceKey, targetDate: string) {
-  const spots = rows.map((row) => normalizeSpot(row, fallbackFor(row, exp)))
+async function normalizeSpotRows(rows: Record<string, unknown>[], exp: ExperienceKey, targetDate: string, timeSlot?: ApiTimeSlot) {
+  const spots = rows.map((row) => normalizeSpot(row, fallbackFor(row, exp), timeSlot))
   const enriched = await Promise.all(
     spots.map(async (spot, index) => {
       if (rowHasPreviewMetrics(rows[index], spot.experience) || rowHasPreviewValues(rows[index], spot.experience)) return spot
       try {
         const raw = await spotApi.detail(spot.id, spot.predcYmd || targetDate)
-        return normalizeSpot(raw, spot)
+        return normalizeSpot(raw, spot, timeSlot)
       } catch {
         return spot
       }
@@ -552,6 +556,10 @@ function onAllQueryInput() {
 function setHomeSort(sort: SortKey) {
   if (sort === 'distance' && !geo.loc) requestLocation()
   homeSort.value = sort
+}
+
+function setHomeTimeSlot(timeSlot: ApiTimeSlot) {
+  homeTimeSlot.value = timeSlot
 }
 
 function requestLocation() {
@@ -1455,10 +1463,15 @@ function titleForPage() {
 
       <section class="list-head">
         <div>
-          <h2>{{ EXPERIENCE_LABELS[homeExperience] }} 지수 · {{ homeDateLabel }}</h2>
+          <h2>{{ EXPERIENCE_LABELS[homeExperience] }} 지수 · {{ homeDateLabel }} {{ homeTimeSlot }}</h2>
           <p>{{ homeSpots.length }}개 스팟 · 상위 {{ homePreview.length }}개 표시</p>
         </div>
         <div class="list-actions">
+          <div class="sort-controls time-slot-controls" aria-label="시간대 선택">
+            <button v-for="timeSlot in VALID_TIME_SLOTS" :key="timeSlot" :class="{ active: timeSlot === homeTimeSlot }" type="button" @click="setHomeTimeSlot(timeSlot)">
+              {{ timeSlot }}
+            </button>
+          </div>
           <div class="sort-controls">
             <button v-for="sort in VALID_SORT" :key="sort" :class="{ active: sort === homeSort }" type="button" @click="setHomeSort(sort)">
               {{ SORT_LABELS[sort] }}

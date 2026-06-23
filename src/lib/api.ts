@@ -48,7 +48,7 @@ apiClient.interceptors.response.use(
 export type ApiExperience = "seaTravel" | "swimming" | "mudflat" | "scuba" | "fishing" | "surfing";
 export type ApiSort = "index" | "community" | "nearby";
 export type AppSort = ApiSort | "distance";
-type ApiTimeSlot = "오전" | "오후";
+export type ApiTimeSlot = "오전" | "오후";
 
 export interface ApiUser {
   userId?: number | string;
@@ -122,7 +122,7 @@ export function toApiSort(sort: AppSort): ApiSort {
   return sort === "distance" ? "nearby" : sort;
 }
 
-function currentApiTimeSlot(now = new Date()): ApiTimeSlot {
+export function currentApiTimeSlot(now = new Date()): ApiTimeSlot {
   return now.getHours() < 12 ? "오전" : "오후";
 }
 
@@ -163,8 +163,8 @@ export function unwrap<T>(payload: unknown): T {
   return payload as T;
 }
 
-export function normalizeSpot(raw: Record<string, unknown>, fallback?: Spot): Spot {
-  const source = flattenMetrics(raw);
+export function normalizeSpot(raw: Record<string, unknown>, fallback?: Spot, preferredTimeSlot?: ApiTimeSlot): Spot {
+  const source = flattenMetrics(raw, preferredTimeSlot);
   const experience = appExperienceMap[String(pick(source, ["experience"], fallback?.experience ?? "seaTravel"))] ?? "travel";
   const totalIndex = normalizeIndex(pick(source, ["totalIndex", "index", "indexLabel", "scoreLabel"], fallback?.totalIndex));
   const base = {
@@ -274,9 +274,9 @@ export const spotApi = {
     });
     return extractList<Record<string, unknown>>(data);
   },
-  async markers(experience: ExperienceKey, targetDate: string) {
+  async markers(experience: ExperienceKey, targetDate: string, timeSlot = currentApiTimeSlot()) {
     const { data } = await apiClient.get("/dashboard/markers", {
-      params: { experience: toApiExperience(experience), targetDate, timeSlot: currentApiTimeSlot() },
+      params: { experience: toApiExperience(experience), targetDate, timeSlot },
     });
     return extractList<Record<string, unknown>>(data);
   },
@@ -354,20 +354,34 @@ function paramsWithLocation(params: Record<string, unknown>, loc?: { lat: number
   return { ...params, userLat: loc.lat, userLng: loc.lon };
 }
 
-function flattenMetrics(raw: Record<string, unknown>) {
+function flattenMetrics(raw: Record<string, unknown>, preferredTimeSlot?: ApiTimeSlot) {
   const metrics = raw.metrics && typeof raw.metrics === "object" ? (raw.metrics as Record<string, unknown>) : {};
   const rawItem = firstItem(raw);
   const metricItem = firstItem(metrics);
+  const forecast = selectedForecast(raw.forecasts, preferredTimeSlot);
+  const forecastMetrics = objectValue(forecast.metrics);
   return {
     ...collectScalars(raw),
     ...collectScalars(metrics),
     ...collectScalars(rawItem),
     ...collectScalars(metricItem),
+    ...collectScalars(forecast),
+    ...collectScalars(forecastMetrics),
     ...raw,
     ...metrics,
     ...rawItem,
     ...metricItem,
+    ...forecast,
+    ...forecastMetrics,
   };
+}
+
+function selectedForecast(value: unknown, preferredTimeSlot?: ApiTimeSlot): Record<string, unknown> {
+  if (!Array.isArray(value)) return {};
+  const forecasts = value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item)));
+  if (!forecasts.length) return {};
+  if (!preferredTimeSlot) return forecasts[0];
+  return forecasts.find((forecast) => normalizeTimeSlot(forecast.timeSlot) === preferredTimeSlot) ?? forecasts[0];
 }
 
 function pick(source: Record<string, unknown>, keys: string[], fallback?: unknown) {
