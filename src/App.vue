@@ -1345,12 +1345,12 @@ function submitHeaderSearch() {
 }
 
 function titleForPage() {
-  if (page.value === 'all') return `전체 스팟 탐색 - MarinePro.KR`
-  if (page.value === 'spot' && currentSpot.value) return `${currentSpot.value.name} - MarinePro.KR`
-  if (page.value === 'auth') return '로그인 - MarinePro.KR'
-  if (page.value === 'me') return '내 글 - MarinePro.KR'
-  if (page.value === 'settings') return '설정 - MarinePro.KR'
-  return 'MarinePro.KR - 체험별 해양 레저 지수 대시보드'
+  if (page.value === 'all') return `전체 스팟 탐색 - 바다모여`
+  if (page.value === 'spot' && currentSpot.value) return `${currentSpot.value.name} - 바다모여`
+  if (page.value === 'auth') return '로그인 - 바다모여'
+  if (page.value === 'me') return '내 글 - 바다모여'
+  if (page.value === 'settings') return '설정 - 바다모여'
+  return '바다모여 - 체험별 해양 레저 지수 대시보드'
 }
 </script>
 
@@ -1368,7 +1368,7 @@ function titleForPage() {
     </div>
 
     <nav class="site-header">
-      <button class="brand" type="button" @click="navigate('/')">MARINEPRO.KR</button>
+      <button class="brand" type="button" @click="navigate('/')">바다모여</button>
       <div class="nav-links">
         <button :class="{ active: page === 'home' }" type="button" @click="navigate('/')">대시보드</button>
         <button :class="{ active: page === 'all' }" type="button" @click="goAll()">모두 보기</button>
@@ -2021,7 +2021,7 @@ function titleForPage() {
     </main>
 
     <footer class="footer">
-      <span>© 2026 MarinePro.KR — Specialized Maritime Forecasting</span>
+      <span>© 2026 바다모여 — Specialized Maritime Forecasting</span>
       <span>DATA: KHOA · ROMS</span>
       <span>UPDATE: 09:42 KST</span>
     </footer>
