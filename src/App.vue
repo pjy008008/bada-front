@@ -737,7 +737,7 @@ async function loadMyPosts() {
     saveCommunity()
     apiState.error = ''
   } catch (error) {
-    apiState.error = apiErrorMessage(error)
+    console.warn('내 게시물 API 요청 실패', error)
   }
 }
 
@@ -752,7 +752,7 @@ async function loadFavoriteSpots() {
     favoriteIds.value = new Set([...favoriteIds.value, ...favoriteSpots.value.map((spot) => spot.id)])
     apiState.error = ''
   } catch (error) {
-    apiState.error = apiErrorMessage(error)
+    console.warn('즐겨찾기 스팟 API 요청 실패', error)
   }
 }
 
