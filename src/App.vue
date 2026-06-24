@@ -99,6 +99,7 @@ const postImageInput = ref<HTMLInputElement | null>(null)
 const commentDrafts = reactive<Record<string, string>>({})
 const openPostId = ref<string | null>(null)
 const openCommentMenuId = ref<string | null>(null)
+const routePostId = ref<string | null>(null)
 const selectedImageUrl = ref('')
 const postImageSlides = reactive<Record<string, number>>({})
 const favoriteIds = ref<Set<string>>(new Set())
@@ -257,6 +258,7 @@ function applyRoute() {
   } else if (parts[0] === 'spot' && parts[1]) {
     page.value = 'spot'
     spotId.value = parts[1]
+    routePostId.value = url.searchParams.get('post')
   } else if (parts[0] === 'auth' || (parts[0] === 'oauth' && parts[1] === 'callback')) {
     page.value = 'auth'
   } else if (parts[0] === 'me') {
@@ -272,7 +274,14 @@ function navigate(path: string) {
   profileMenuOpen.value = false
   history.pushState(null, '', path)
   applyRoute()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  const targetHash = new URL(path, window.location.origin).hash
+  if (targetHash) {
+    window.setTimeout(() => {
+      document.querySelector(targetHash)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 120)
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 }
 
 function goAll(exp = homeExperience.value, sort: SortKey = 'index') {
@@ -721,6 +730,13 @@ async function loadPosts(targetSpotId: string) {
       ...community.value.filter((post) => post.spotId !== targetSpotId),
       ...mapped,
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    if (routePostId.value) {
+      const targetPost = community.value.find((post) => post.spotId === targetSpotId && post.id === routePostId.value)
+      if (targetPost) {
+        openPostId.value = targetPost.id
+        void refreshPostComments(targetPost)
+      }
+    }
     saveCommunity()
   } catch (error) {
     apiState.error = apiErrorMessage(error)
@@ -1644,7 +1660,7 @@ function titleForPage() {
           <button class="btn primary small" type="button" @click="navigate('/auth')">로그인</button>
         </div>
         <div v-if="!spotPosts.length" class="empty">아직 게시글이 없습니다. 첫 글을 남겨보세요.</div>
-        <article v-for="post in spotPosts" :key="post.id" class="post">
+        <article v-for="post in spotPosts" :id="`post-${post.id}`" :key="post.id" class="post">
           <div class="post-head">
             <div><h3>{{ post.title }}</h3><p>{{ post.author }} · {{ fmt(post.createdAt) }}</p></div>
             <div class="post-actions">
@@ -1874,7 +1890,7 @@ function titleForPage() {
             </div>
             <div v-if="!myPosts.length" class="empty compact">아직 작성한 글이 없습니다.</div>
             <div v-else class="my-post-list">
-              <button v-for="post in myPosts" :key="post.id" class="my-post-card" type="button" @click="navigate(`/spot/${post.spotId}`)">
+              <button v-for="post in myPosts" :key="post.id" class="my-post-card" type="button" @click="navigate(`/spot/${post.spotId}?post=${post.id}#post-${post.id}`)">
                 <div class="my-post-copy">
                   <small>{{ new Date(post.createdAt).toLocaleDateString('ko-KR') }}</small>
                   <h2>{{ post.title }}</h2>
