@@ -7,7 +7,6 @@ import {
   SPOTS_BY_EXPERIENCE,
   getSpot as getStaticSpot,
   getSpots,
-  indexTone,
   type ExperienceKey,
   type Spot,
 } from './lib/marine-data'
@@ -36,6 +35,7 @@ import {
   type ApiUser,
 } from './lib/api'
 import ChatbotWidget from './components/chat/ChatbotWidget.vue'
+import DashboardSpotCard from './components/dashboard/DashboardSpotCard.vue'
 import ImageModal from './components/layout/ImageModal.vue'
 import SiteHeader from './components/layout/SiteHeader.vue'
 import ToastNotice from './components/layout/ToastNotice.vue'
@@ -45,12 +45,9 @@ import type { Page } from './types/navigation'
 import {
   aiRecommendationReason,
   analysisSummary,
-  cardAiReason,
   detailFields,
   fieldHelp,
-  highlight,
   markerColor,
-  statsForCard,
   summary,
 } from './utils/spot-display'
 
@@ -1437,44 +1434,14 @@ function titleForPage() {
       </section>
 
       <div class="spot-grid">
-        <article
+        <DashboardSpotCard
           v-for="(spot, index) in homePreview"
           :key="spot.id"
-          class="spot-card"
-          role="button"
-          tabindex="0"
-          :style="{ animationDelay: `${index * 60}ms` }"
-          @click="navigate(`/spot/${spot.id}`)"
-          @keydown.enter.prevent="navigate(`/spot/${spot.id}`)"
-          @keydown.space.prevent="navigate(`/spot/${spot.id}`)"
-          @mouseenter="hoveredHomeSpotId = spot.id"
-          @mouseleave="hoveredHomeSpotId = undefined"
-          @focusin="hoveredHomeSpotId = spot.id"
-          @focusout="hoveredHomeSpotId = undefined"
-        >
-          <div class="spot-card-top">
-            <div>
-              <p class="meta">{{ spot.region }}<template v-if="spot.predcNoonSeCd"> · {{ spot.predcNoonSeCd }}</template></p>
-              <h3>{{ spot.name }}</h3>
-              <p class="meta">{{ spot.lat.toFixed(2) }}°N {{ spot.lot.toFixed(2) }}°E</p>
-            </div>
-            <span class="chip" :class="indexTone(spot.totalIndex).chip">{{ spot.totalIndex }}</span>
-          </div>
-          <div class="highlight">
-            <span>{{ highlight(spot).label }}</span>
-            <strong>{{ highlight(spot).value }}</strong>
-          </div>
-          <div v-if="cardAiReason(spot)" class="ai-card-reason">
-            <span>AI 추천</span>
-            <p>{{ cardAiReason(spot) }}</p>
-          </div>
-          <div class="stats-grid">
-            <div v-for="[label, value] in statsForCard(spot)" :key="label">
-              <span>{{ label }}</span>
-              <strong>{{ value }}</strong>
-            </div>
-          </div>
-        </article>
+          :index="index"
+          :spot="spot"
+          @hover="hoveredHomeSpotId = $event"
+          @navigate="(id) => navigate(`/spot/${id}`)"
+        />
       </div>
       <div class="center-action">
         <button class="btn outline large" type="button" @click="goAll()">모두 보기 ({{ homeSpots.length }})</button>
