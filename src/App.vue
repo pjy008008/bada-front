@@ -34,6 +34,7 @@ import {
   type ApiPost,
   type ApiUser,
 } from './lib/api'
+import AllSpotRow from './components/all-spots/AllSpotRow.vue'
 import ChatbotWidget from './components/chat/ChatbotWidget.vue'
 import DashboardSpotCard from './components/dashboard/DashboardSpotCard.vue'
 import ImageModal from './components/layout/ImageModal.vue'
@@ -47,7 +48,6 @@ import {
   analysisSummary,
   detailFields,
   fieldHelp,
-  markerColor,
   summary,
 } from './utils/spot-display'
 
@@ -1530,26 +1530,17 @@ function titleForPage() {
               <div class="result-head"><span>{{ sortedAll.length }}개 결과</span><span>{{ SORT_LABELS[allSort] }}</span></div>
               <div v-if="!sortedAll.length" class="empty">일치하는 스팟이 없습니다.</div>
               <ul v-else class="spot-rows">
-                <li v-for="(spot, index) in sortedAll" :key="spot.id" :style="{ animationDelay: `${Math.min(index * 24, 180)}ms` }">
-                  <button type="button" @click="navigate(`/spot/${spot.id}`)">
-                    <span class="row-no">{{ String(index + 1).padStart(2, '0') }}</span>
-                    <span class="row-name"><small>{{ spot.region }}</small><strong>{{ spot.name }}</strong></span>
-                    <span class="row-summary"><strong>{{ summary(spot).primary }}</strong><small>{{ summary(spot).secondary }}</small></span>
-                    <span class="row-community">글 {{ counts[spot.id] ?? 0 }}<template v-if="allSort === 'distance' && geo.loc"> · {{ distanceLabel(spot) }}</template></span>
-                    <span class="meter" :aria-label="`지수 ${spot.totalIndex}, ${INDEX_LEVEL[spot.totalIndex]}단계`">
-                      <small>{{ spot.totalIndex }}</small>
-                      <span class="meter-bars" aria-hidden="true">
-                        <i
-                          v-for="step in 5"
-                          :key="step"
-                          class="meter-segment"
-                          :class="{ active: step <= INDEX_LEVEL[spot.totalIndex] }"
-                          :style="step <= INDEX_LEVEL[spot.totalIndex] ? { background: markerColor(spot.totalIndex) } : undefined"
-                        ></i>
-                      </span>
-                    </span>
-                  </button>
-                </li>
+                <AllSpotRow
+                  v-for="(spot, index) in sortedAll"
+                  :key="spot.id"
+                  :count="counts[spot.id] ?? 0"
+                  :distance-text="distanceLabel(spot)"
+                  :index="index"
+                  :sort="allSort"
+                  :spot="spot"
+                  :user-located="Boolean(geo.loc)"
+                  @navigate="(id) => navigate(`/spot/${id}`)"
+                />
               </ul>
             </section>
           </div>
