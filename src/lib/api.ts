@@ -318,6 +318,10 @@ export const aiApi = {
 };
 
 export const postApi = {
+  async feed(sort: "popular" | "latest") {
+    const { data } = await apiClient.get("/posts", { params: { sort, page: 1, pageSize: 100 } });
+    return extractList<ApiPost>(data);
+  },
   async list(spotId: string) {
     const { data } = await apiClient.get(`/spots/${spotId}/posts`, { params: { page: 1, pageSize: 50 } });
     return extractList<ApiPost>(data);

@@ -1,1 +1,1 @@
-export type Page = 'home' | 'all' | 'spot' | 'auth' | 'me' | 'settings'
+export type Page = 'home' | 'all' | 'spot' | 'community' | 'auth' | 'me' | 'settings'

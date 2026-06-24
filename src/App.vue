@@ -57,6 +57,7 @@ type Toast = {
   message: string
   tone: 'success' | 'error'
 }
+type CommunityTab = 'popular' | 'latest'
 
 const VALID_EXP: ExperienceKey[] = ['travel', 'surfing', 'fishing', 'scuba', 'mudflat', 'swimming']
 const VALID_SORT: SortKey[] = ['ai', 'index', 'community', 'distance']
@@ -93,6 +94,10 @@ const user = reactive({
   createdAt: '',
 })
 const community = ref<CommunityPost[]>([])
+const communityTab = ref<CommunityTab>('popular')
+const communityFeedLoading = ref(false)
+const communityFeedError = ref('')
+const communityModalPostId = ref<string | null>(null)
 const postForm = reactive({ title: '', content: '', imageUrl: '' })
 const postImageFiles = ref<File[]>([])
 const postImageInput = ref<HTMLInputElement | null>(null)
@@ -196,6 +201,8 @@ const spotPosts = computed(() => community.value.filter((post) => post.spotId ==
 const myPosts = computed(() =>
   community.value.filter((post) => canManagePost(post)),
 )
+const communityFeed = computed(() => sortCommunityFeed(community.value, communityTab.value))
+const communityModalPost = computed(() => community.value.find((post) => post.id === communityModalPostId.value) ?? null)
 
 onMounted(() => {
   loadUser()
@@ -205,6 +212,7 @@ onMounted(() => {
   void initializeSession()
   void loadHomeData()
   if (page.value === 'all') void loadAllData()
+  if (page.value === 'community') void loadCommunityFeed()
 })
 
 watch([page, spotId, allExp, allSort, allQuery, allRegion], () => {
@@ -221,6 +229,11 @@ watch([allExp, listDate, allSort, allTimeSlot], () => {
 
 watch(page, (current, previous) => {
   if (current === 'all' && previous !== 'all') void loadAllData()
+  if (current === 'community' && previous !== 'community') void loadCommunityFeed()
+})
+
+watch(communityTab, () => {
+  if (page.value === 'community') void loadCommunityFeed()
 })
 
 watch(
@@ -259,6 +272,8 @@ function applyRoute() {
     page.value = 'spot'
     spotId.value = parts[1]
     routePostId.value = url.searchParams.get('post')
+  } else if (parts[0] === 'community') {
+    page.value = 'community'
   } else if (parts[0] === 'auth' || (parts[0] === 'oauth' && parts[1] === 'callback')) {
     page.value = 'auth'
   } else if (parts[0] === 'me') {
@@ -755,6 +770,77 @@ async function loadMyPosts() {
   } catch (error) {
     console.warn('내 게시물 API 요청 실패', error)
   }
+}
+
+async function loadCommunityFeed() {
+  communityFeedLoading.value = true
+  communityFeedError.value = ''
+  try {
+    const posts = await postApi.feed(communityTab.value)
+    if (posts.length) mergeCommunityPosts(posts.map((post) => mapPost(post, String(post.spotId ?? ''))))
+    apiState.error = ''
+  } catch (error) {
+    communityFeedError.value = '게시글 목록을 불러오지 못했습니다. 기존에 확인한 게시글을 표시합니다.'
+    console.warn('커뮤니티 피드 API 요청 실패', error)
+  } finally {
+    communityFeedLoading.value = false
+  }
+}
+
+function mergeCommunityPosts(posts: CommunityPost[]) {
+  const next = new Map(community.value.map((post) => [post.id, post]))
+  for (const post of posts) {
+    const existing = next.get(post.id)
+    next.set(post.id, {
+      ...existing,
+      ...post,
+      comments: post.comments.length ? post.comments : existing?.comments ?? [],
+      commentCount: post.commentCount ?? existing?.commentCount ?? 0,
+    })
+  }
+  community.value = sortCommunityFeed([...next.values()], 'latest')
+  saveCommunity()
+}
+
+function sortCommunityFeed(posts: CommunityPost[], tab: CommunityTab) {
+  return [...posts].sort((a, b) => {
+    if (tab === 'popular') {
+      if (b.commentCount !== a.commentCount) return b.commentCount - a.commentCount
+      if (b.likeCount !== a.likeCount) return b.likeCount - a.likeCount
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })
+}
+
+async function openCommunityPost(post: CommunityPost) {
+  communityModalPostId.value = post.id
+  try {
+    await refreshPostComments(post)
+  } catch (error) {
+    console.warn('커뮤니티 댓글 API 요청 실패', error)
+  }
+}
+
+function closeCommunityPost() {
+  communityModalPostId.value = null
+}
+
+function communitySpotLabel(post: CommunityPost) {
+  const spot = getSpot(post.spotId)
+  return spot ? spot.name : post.spotId || '스팟 정보 없음'
+}
+
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return '방금'
+  if (minutes < 60) return `${minutes}분 전`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}시간 전`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}일 전`
+  const date = new Date(iso)
+  return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
 async function loadFavoriteSpots() {
@@ -1346,6 +1432,7 @@ function submitHeaderSearch() {
 function titleForPage() {
   if (page.value === 'all') return `전체 스팟 탐색 - 바다모여`
   if (page.value === 'spot' && currentSpot.value) return `${currentSpot.value.name} - 바다모여`
+  if (page.value === 'community') return '커뮤니티 - 바다모여'
   if (page.value === 'auth') return '로그인 - 바다모여'
   if (page.value === 'me') return '내 글 - 바다모여'
   if (page.value === 'settings') return '설정 - 바다모여'
@@ -1785,6 +1872,97 @@ function titleForPage() {
       </section>
     </main>
 
+    <main v-else-if="page === 'community'" class="community-feed-page">
+      <header class="community-feed-header">
+        <h1>커뮤니티 피드</h1>
+        <p>전국 해양 여행지의 후기를 한 곳에서 둘러보세요.</p>
+      </header>
+
+      <div class="community-feed-tabs" role="tablist" aria-label="커뮤니티 정렬">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="communityTab === 'popular'"
+          :class="{ active: communityTab === 'popular' }"
+          @click="communityTab = 'popular'"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M13 2 4.5 13.2h6L9.8 22 19.5 9.8h-6L13 2Z" />
+          </svg>
+          인기글
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="communityTab === 'latest'"
+          :class="{ active: communityTab === 'latest' }"
+          @click="communityTab = 'latest'"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 6v6l4 2" />
+            <path d="M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z" />
+          </svg>
+          최신글
+        </button>
+      </div>
+
+      <p v-if="communityFeedError" class="community-feed-note">{{ communityFeedError }}</p>
+
+      <div v-if="communityFeedLoading && !communityFeed.length" class="community-skeleton-list">
+        <div v-for="item in 3" :key="item" class="community-skeleton-card">
+          <div><span></span><strong></strong></div>
+          <p></p>
+          <em></em>
+        </div>
+      </div>
+      <div v-else-if="!communityFeed.length" class="community-empty">
+        아직 게시물이 없습니다. 여행지 상세에서 첫 글을 남겨보세요.
+      </div>
+      <ul v-else class="community-feed-list">
+        <li v-for="post in communityFeed" :key="post.id" class="community-feed-card">
+          <div class="feed-card-author">
+            <div class="feed-avatar">{{ post.author.charAt(0).toUpperCase() }}</div>
+            <div>
+              <strong>{{ post.author }}</strong>
+              <button type="button" @click="navigate(`/spot/${post.spotId}`)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11Z" />
+                  <path d="M12 10.5h.01" />
+                </svg>
+                {{ communitySpotLabel(post) }}
+              </button>
+            </div>
+            <span>{{ timeAgo(post.createdAt) }}</span>
+          </div>
+
+          <button class="feed-card-body" type="button" @click="openCommunityPost(post)">
+            <div v-if="post.imageUrl" class="feed-card-image">
+              <img :src="post.imageUrl" alt="" loading="lazy" />
+            </div>
+            <div class="feed-card-copy">
+              <h2>{{ post.title }}</h2>
+              <p>{{ post.content }}</p>
+            </div>
+          </button>
+
+          <div class="feed-card-actions">
+            <button type="button" :class="{ active: post.liked }" @click="toggleLike(post)">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20.8 4.6a5.4 5.4 0 0 0-7.7 0L12 5.7l-1.1-1.1a5.4 5.4 0 0 0-7.7 7.7L12 21l8.8-8.7a5.4 5.4 0 0 0 0-7.7Z" />
+              </svg>
+              {{ post.likeCount }}
+            </button>
+            <button type="button" @click="openCommunityPost(post)">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.8 8.8 0 0 1-3.8-.9L3 20l1.4-4.4a8.1 8.1 0 0 1-.9-3.7 8.5 8.5 0 0 1 17.5-.4Z" />
+              </svg>
+              댓글 {{ post.commentCount }}
+            </button>
+          </div>
+        </li>
+      </ul>
+    </main>
+
     <main v-else-if="page === 'auth'" class="page account-page">
       <section class="account-panel auth-panel">
         <h1>{{ authMode === 'signin' ? '로그인' : '회원가입' }}</h1>
@@ -1995,6 +2173,68 @@ function titleForPage() {
         <button class="link-button" type="button" @click="navigate('/')">대시보드로 돌아가기</button>
       </section>
     </main>
+
+    <div v-if="communityModalPost" class="feed-modal-backdrop" role="dialog" aria-modal="true" @click.self="closeCommunityPost">
+      <section class="feed-modal">
+        <button class="feed-modal-close" type="button" aria-label="닫기" @click="closeCommunityPost">×</button>
+        <div class="feed-modal-media">
+          <img v-if="communityModalPost.imageUrl" :src="communityModalPost.imageUrl" alt="" />
+          <p v-else>{{ communityModalPost.content }}</p>
+        </div>
+        <div class="feed-modal-panel">
+          <header>
+            <div class="feed-avatar small">{{ communityModalPost.author.charAt(0).toUpperCase() }}</div>
+            <div>
+              <strong>{{ communityModalPost.author }}</strong>
+              <button type="button" @click="navigate(`/spot/${communityModalPost.spotId}`); closeCommunityPost()">
+                {{ communitySpotLabel(communityModalPost) }}
+              </button>
+            </div>
+            <span>{{ timeAgo(communityModalPost.createdAt) }}</span>
+          </header>
+          <div class="feed-modal-content">
+            <h2>{{ communityModalPost.title }}</h2>
+            <p v-if="communityModalPost.imageUrl">{{ communityModalPost.content }}</p>
+            <div class="feed-modal-comments">
+              <strong>댓글 {{ communityModalPost.comments.length }}</strong>
+              <p v-if="!communityModalPost.comments.length" class="muted center">첫 댓글을 남겨보세요.</p>
+              <div v-for="comment in communityModalPost.comments" :key="comment.id" class="feed-comment">
+                <div class="feed-avatar tiny">{{ commentAvatar(comment) }}</div>
+                <div>
+                  <p>
+                    <strong>{{ comment.author }}</strong>
+                    <span>{{ timeAgo(comment.createdAt) }}</span>
+                  </p>
+                  <div>{{ comment.content }}</div>
+                </div>
+                <div v-if="canManageComment(comment)" class="more-menu-wrap">
+                  <button class="more-action compact" type="button" aria-label="댓글 메뉴" @click="toggleCommentMenu(`feed-comment-${comment.id}`)">
+                    <span></span><span></span><span></span>
+                  </button>
+                  <div v-if="openCommentMenuId === `feed-comment-${comment.id}`" class="more-menu">
+                    <button type="button" @click="editComment(communityModalPost, comment)">수정</button>
+                    <button type="button" class="danger" @click="deleteComment(communityModalPost, comment.id)">삭제</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <form class="feed-modal-form" @submit.prevent="submitComment(communityModalPost)">
+            <input
+              v-model="commentDrafts[communityModalPost.id]"
+              :disabled="!user.loggedIn"
+              maxlength="1000"
+              :placeholder="user.loggedIn ? '댓글 달기...' : '로그인 후 댓글을 남길 수 있어요'"
+            />
+            <button class="btn primary icon-only" type="submit" :disabled="!user.loggedIn || !commentDrafts[communityModalPost.id]?.trim()">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m22 2-7 20-4-9-9-4 20-7Z" />
+              </svg>
+            </button>
+          </form>
+        </div>
+      </section>
+    </div>
 
     <ChatbotWidget />
 

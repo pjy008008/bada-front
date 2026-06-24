@@ -31,6 +31,7 @@ const emit = defineEmits<{
     <div class="nav-links">
       <button :class="{ active: page === 'home' }" type="button" @click="emit('navigate', '/')">대시보드</button>
       <button :class="{ active: page === 'all' }" type="button" @click="emit('goAll')">모두 보기</button>
+      <button :class="{ active: page === 'community' }" type="button" @click="emit('navigate', '/community')">커뮤니티</button>
     </div>
     <form class="header-search" @submit.prevent="emit('submitSearch')">
       <span>Search</span>
