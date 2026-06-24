@@ -831,6 +831,11 @@ function communitySpotLabel(post: CommunityPost) {
   return spot ? spot.name : post.spotId || '스팟 정보 없음'
 }
 
+function handlePostImageError(post: CommunityPost) {
+  const currentIndex = post.imageUrl ? post.imageUrls.indexOf(post.imageUrl) : -1
+  post.imageUrl = post.imageUrls[currentIndex + 1] ?? null
+}
+
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
   const minutes = Math.floor(diff / 60000)
@@ -1133,22 +1138,27 @@ function normalizePostImageUrls(post: ApiPost) {
 function extractImageUrls(value: unknown): string[] {
   if (!value) return []
   if (typeof value === 'string') {
-    const normalized = normalizeImageUrl(value)
-    return normalized ? [normalized] : []
+    return normalizeImageUrlCandidates(value)
   }
   if (Array.isArray(value)) return value.flatMap(extractImageUrls)
   if (typeof value === 'object') {
     const obj = value as Record<string, unknown>
-    return extractImageUrls(obj.imageUrl ?? obj.url ?? obj.path ?? obj.src)
+    return extractImageUrls(obj.imageUrl ?? obj.thumbnailUrl ?? obj.fileUrl ?? obj.url ?? obj.path ?? obj.src)
   }
   return []
 }
 
 function normalizeImageUrl(value: string) {
+  return normalizeImageUrlCandidates(value)[0] ?? null
+}
+
+function normalizeImageUrlCandidates(value: string) {
   const trimmed = value.trim()
-  if (!trimmed) return null
-  if (/^(https?:|data:|blob:)/i.test(trimmed)) return trimmed
-  return new URL(trimmed, API_BASE_URL).href
+  if (!trimmed) return []
+  if (/^(https?:|data:|blob:)/i.test(trimmed)) return [trimmed]
+  const candidates = [new URL(trimmed, API_BASE_URL).href]
+  if (trimmed.startsWith('/')) candidates.push(trimmed)
+  return candidates
 }
 
 function mapComment(comment: ApiComment): CommunityComment {
@@ -1940,7 +1950,7 @@ function titleForPage() {
 
           <button class="feed-card-body" type="button" @click="openCommunityPost(post)">
             <div v-if="post.imageUrl" class="feed-card-image">
-              <img :src="post.imageUrl" alt="" loading="lazy" />
+              <img :src="post.imageUrl" alt="" loading="lazy" @error="handlePostImageError(post)" />
             </div>
             <div class="feed-card-copy">
               <h2>{{ post.title }}</h2>
@@ -2181,7 +2191,7 @@ function titleForPage() {
       <section class="feed-modal">
         <button class="feed-modal-close" type="button" aria-label="닫기" @click="closeCommunityPost">×</button>
         <div class="feed-modal-media">
-          <img v-if="communityModalPost.imageUrl" :src="communityModalPost.imageUrl" alt="" />
+          <img v-if="communityModalPost.imageUrl" :src="communityModalPost.imageUrl" alt="" @error="handlePostImageError(communityModalPost)" />
           <p v-else>{{ communityModalPost.content }}</p>
         </div>
         <div class="feed-modal-panel">
