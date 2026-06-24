@@ -36,7 +36,9 @@ import {
   type ApiUser,
 } from './lib/api'
 import ChatbotWidget from './components/chat/ChatbotWidget.vue'
+import ImageModal from './components/layout/ImageModal.vue'
 import SiteHeader from './components/layout/SiteHeader.vue'
+import ToastNotice from './components/layout/ToastNotice.vue'
 import LeafletMap from './components/LeafletMap.vue'
 import type { CommunityComment, CommunityPost } from './types/community'
 import type { Page } from './types/navigation'
@@ -1339,16 +1341,8 @@ function titleForPage() {
 
 <template>
   <div class="app-shell">
-    <Transition name="toast">
-      <div v-if="toast.show" class="toast" :class="toast.tone" role="status" aria-live="polite">
-        {{ toast.message }}
-      </div>
-    </Transition>
-
-    <div v-if="selectedImageUrl" class="image-modal" role="dialog" aria-modal="true" aria-label="게시물 이미지 크게 보기" @click.self="closeImageModal">
-      <button class="image-modal-close" type="button" aria-label="닫기" @click="closeImageModal">×</button>
-      <img :src="selectedImageUrl" alt="" />
-    </div>
+    <ToastNotice :message="toast.message" :show="toast.show" :tone="toast.tone" />
+    <ImageModal :image-url="selectedImageUrl" @close="closeImageModal" />
 
     <SiteHeader
       v-model:header-query="headerQuery"
