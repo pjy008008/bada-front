@@ -77,6 +77,7 @@ const allExp = ref<ExperienceKey>('travel')
 const allSort = ref<SortKey>('index')
 const allQuery = ref('')
 const allRegion = ref<string | undefined>()
+const allTimeSlot = ref<ApiTimeSlot>(currentApiTimeSlot())
 
 const homeExperience = ref<ExperienceKey>('travel')
 const homeSort = ref<SortKey>('index')
@@ -116,6 +117,7 @@ const authForm = reactive({ email: '', password: '', displayName: '' })
 const authMessage = ref('')
 const apiState = reactive({ loading: false, error: '' })
 const toast = reactive<Toast>({ show: false, message: '', tone: 'success' })
+const spotDetailLoading = ref(false)
 let toastTimer: number | undefined
 let homeLoadToken = 0
 const remoteSpots = reactive<Record<ExperienceKey, Spot[]>>({
@@ -190,6 +192,8 @@ const allStats = computed(() => ({
 }))
 const topSpot = computed(() => sortedAll.value[0])
 const listDateLabel = computed(() => dateOptions.value.find((o) => o.value === listDate.value)?.label ?? listDate.value)
+const allTimeSlotSelectable = computed(() => isTimeSlotSelectable(listDate.value))
+const selectedAllTimeSlot = computed(() => (allTimeSlotSelectable.value && allExp.value !== 'mudflat' ? allTimeSlot.value : undefined))
 const currentSpot = computed(() => getSpot(spotId.value))
 const spotTargetDate = computed(() => (spotId.value ? targetDateForSpot(spotId.value) : selectedDate.value))
 const spotTimeSlotSelectable = computed(() => isTimeSlotSelectable(spotTargetDate.value))
@@ -217,7 +221,7 @@ watch([homeExperience, selectedDate, homeSort, homeTimeSlot], () => {
   void loadHomeData()
 })
 
-watch([allExp, listDate, allSort], () => {
+watch([allExp, listDate, allSort, allTimeSlot], () => {
   void loadAllData()
 })
 
@@ -395,10 +399,10 @@ async function loadHomeData() {
 }
 
 async function loadAllData() {
-  await loadSpotList(allExp.value, listDate.value, allSort.value, allQuery.value)
+  await loadSpotList(allExp.value, listDate.value, allSort.value, allQuery.value, undefined, selectedAllTimeSlot.value)
 }
 
-async function loadSpotList(exp: ExperienceKey, targetDate: string, sort: SortKey, keyword = '', fallbackLimit?: number) {
+async function loadSpotList(exp: ExperienceKey, targetDate: string, sort: SortKey, keyword = '', fallbackLimit?: number, timeSlot?: ApiTimeSlot) {
   apiState.loading = true
   try {
     const rows = fallbackLimit
@@ -406,7 +410,7 @@ async function loadSpotList(exp: ExperienceKey, targetDate: string, sort: SortKe
       : await spotApi.list(exp, targetDate, sort, keyword, geo.loc)
     const source = rows.length ? rows : await spotApi.dashboard(exp, targetDate, sort, fallbackLimit ?? 100, geo.loc)
     if (source.length) {
-      remoteSpots[exp] = await normalizeSpotRows(source, exp, targetDate)
+      remoteSpots[exp] = await normalizeSpotRows(source, exp, targetDate, timeSlot)
       syncFavoriteIds(remoteSpots[exp])
       apiState.error = ''
     }
@@ -501,6 +505,7 @@ function hasAny(flat: Record<string, unknown>, keys: string[]) {
 
 async function loadSpotDetail(id: string) {
   const fallback = getSpot(id)
+  spotDetailLoading.value = true
   try {
     const raw = await spotApi.detail(id, targetDateForSpot(id))
     remoteSpotDetails[id] = normalizeSpot(raw, fallback, selectedSpotTimeSlot.value)
@@ -508,6 +513,8 @@ async function loadSpotDetail(id: string) {
     apiState.error = ''
   } catch (error) {
     apiState.error = apiErrorMessage(error)
+  } finally {
+    if (spotId.value === id) spotDetailLoading.value = false
   }
 }
 
@@ -561,6 +568,10 @@ function setAllSort(sort: SortKey) {
   if (sort === 'distance' && !geo.loc) requestLocation()
   allSort.value = sort
   updateAllUrl()
+}
+
+function setAllTimeSlot(timeSlot: ApiTimeSlot) {
+  allTimeSlot.value = timeSlot
 }
 
 function setAllRegion(region?: string) {
@@ -631,6 +642,15 @@ function summary(spot: Spot) {
     case 'surfing':
       return { primary: `파고 ${spot.avgWvhgt}m · 주기 ${spot.avgWvpd}s`, secondary: `등급 ${spot.grdCn}` }
   }
+}
+
+function analysisSummary(spot: Spot) {
+  return `현재 ${spot.name}의 ${EXPERIENCE_LABELS[spot.experience]} 지수는 ${spot.totalIndex} 입니다. 실시간 KHOA 기상·해양 데이터를 기반으로 산출되었으며, 시간대별 변화에 따라 조건이 달라질 수 있습니다.`
+}
+
+function aiRecommendationReason(spot: Spot) {
+  const reason = spot.recommendationReason?.trim()
+  return reason && reason !== '-' ? reason : ''
 }
 
 function highlight(spot: Spot) {
@@ -1620,6 +1640,11 @@ function titleForPage() {
                     </button>
                   </div>
                 </div>
+                <div v-if="allExp !== 'mudflat' && allTimeSlotSelectable" class="sort-controls time-slot-controls" aria-label="시간대 선택">
+                  <button v-for="timeSlot in VALID_TIME_SLOTS" :key="timeSlot" :class="{ active: timeSlot === allTimeSlot }" type="button" @click="setAllTimeSlot(timeSlot)">
+                    {{ timeSlot }}
+                  </button>
+                </div>
                 <div class="sort-controls">
                   <button v-for="sort in VALID_SORT" :key="sort" :class="{ active: sort === allSort }" type="button" @click="setAllSort(sort)">
                     {{ SORT_LABELS[sort] }}
@@ -1710,7 +1735,12 @@ function titleForPage() {
       </section>
       <section class="analysis">
         <h2>분석 요약</h2>
-        <p>현재 {{ currentSpot.name }}의 {{ EXPERIENCE_LABELS[currentSpot.experience] }} 지수는 <strong>{{ currentSpot.totalIndex }}</strong> 입니다. 실시간 KHOA 기상·해양 데이터를 기반으로 산출되었으며, 시간대별 변화에 따라 조건이 달라질 수 있습니다.</p>
+        <p>{{ analysisSummary(currentSpot) }}</p>
+        <p v-if="aiRecommendationReason(currentSpot)" class="ai-reason">{{ aiRecommendationReason(currentSpot) }}</p>
+        <p v-else-if="spotDetailLoading" class="ai-reason pending">
+          <span aria-hidden="true"></span>
+          AI 분석 요약을 불러오는 중입니다.
+        </p>
       </section>
       <section>
         <div class="section-head compact">

@@ -53,6 +53,7 @@ export interface BaseSpot {
   totalIndex: IndexLabel;
   postCount?: number;
   favorite?: boolean;
+  recommendationReason?: string;
 }
 
 export interface TravelSpot extends BaseSpot {

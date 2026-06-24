@@ -179,6 +179,7 @@ export function normalizeSpot(raw: Record<string, unknown>, fallback?: Spot, pre
     totalIndex,
     postCount: numberValue(pick(source, ["postCount", "commentCount"], fallback?.postCount), 0),
     favorite: booleanValue(pick(source, ["favorite", "favorited", "isFavorite"], fallback?.favorite ?? false)),
+    recommendationReason: optionalStringValue(pick(source, ["recommendationReason", "aiRecommendationReason"], fallback?.recommendationReason)),
   };
 
   return {
@@ -487,6 +488,12 @@ function numberValue(value: unknown, fallback: number) {
 
 function stringValue(value: unknown) {
   return value === undefined || value === null || value === "" ? "-" : String(value);
+}
+
+function optionalStringValue(value: unknown) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const text = String(value).trim();
+  return text && text !== "-" ? text : undefined;
 }
 
 function booleanValue(value: unknown) {
