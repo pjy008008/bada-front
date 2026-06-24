@@ -69,6 +69,7 @@ type Toast = {
 
 const VALID_EXP: ExperienceKey[] = ['travel', 'surfing', 'fishing', 'scuba', 'mudflat', 'swimming']
 const VALID_SORT: SortKey[] = ['ai', 'index', 'community', 'distance']
+const ALL_SORT: SortKey[] = ['index', 'community', 'distance']
 const VALID_TIME_SLOTS: ApiTimeSlot[] = ['오전', '오후']
 
 const page = ref<Page>('home')
@@ -258,7 +259,7 @@ function applyRoute() {
   if (parts[0] === 'all') {
     page.value = 'all'
     allExp.value = parseExp(url.searchParams.get('exp'))
-    allSort.value = parseSort(url.searchParams.get('sort'))
+    allSort.value = parseAllSort(url.searchParams.get('sort'))
     allQuery.value = url.searchParams.get('q') ?? ''
     allRegion.value = url.searchParams.get('region') ?? undefined
   } else if (parts[0] === 'spot' && parts[1]) {
@@ -282,7 +283,7 @@ function navigate(path: string) {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-function goAll(exp = homeExperience.value, sort = homeSort.value) {
+function goAll(exp = homeExperience.value, sort: SortKey = 'index') {
   navigate(`/all?exp=${exp}&sort=${sort}`)
 }
 
@@ -307,6 +308,10 @@ function parseExp(value: string | null): ExperienceKey {
 
 function parseSort(value: string | null): SortKey {
   return VALID_SORT.includes(value as SortKey) ? (value as SortKey) : 'ai'
+}
+
+function parseAllSort(value: string | null): SortKey {
+  return ALL_SORT.includes(value as SortKey) ? (value as SortKey) : 'index'
 }
 
 function spotsFor(exp: ExperienceKey) {
@@ -1668,7 +1673,7 @@ function titleForPage() {
                   </button>
                 </div>
                 <div class="sort-controls">
-                  <button v-for="sort in VALID_SORT" :key="sort" :class="{ active: sort === allSort }" type="button" @click="setAllSort(sort)">
+                  <button v-for="sort in ALL_SORT" :key="sort" :class="{ active: sort === allSort }" type="button" @click="setAllSort(sort)">
                     {{ SORT_LABELS[sort] }}
                   </button>
                 </div>
