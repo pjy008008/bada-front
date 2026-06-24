@@ -1882,12 +1882,44 @@ textarea:focus {
   font-size: 12px;
 }
 
-.post-actions,
-.comment-actions {
+.post-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.post-like-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 4px 2px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.post-like-action svg {
+  width: 20px;
+  height: 20px;
+}
+
+.post-like-action path {
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linejoin: round;
+}
+
+.post-like-action.active {
+  color: var(--destructive);
+}
+
+.post-like-action.active path {
+  fill: currentColor;
 }
 
 .post-image-carousel {
@@ -2073,10 +2105,18 @@ textarea:focus {
   min-width: 0;
 }
 
+.comment-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .comment-meta {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  min-width: 0;
 }
 
 .comment-meta span {
@@ -2084,10 +2124,100 @@ textarea:focus {
   font-size: 11px;
 }
 
-.comment-actions {
-  margin-top: 8px;
+.comment-children {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(59, 130, 246, 0.16);
+}
+
+.comment.reply {
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.more-menu-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.more-action {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.more-action:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--foreground);
+}
+
+.more-action span,
+.more-action span::before,
+.more-action span::after {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.more-action span {
+  position: relative;
+  display: block;
+}
+
+.more-action span::before,
+.more-action span::after {
+  content: '';
+  position: absolute;
+  left: 0;
+}
+
+.more-action span::before {
+  top: -7px;
+}
+
+.more-action span::after {
+  top: 7px;
+}
+
+.more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 96px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.14);
+}
+
+.more-menu button {
+  width: 100%;
+  display: block;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  padding: 9px 12px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.more-menu button:hover {
+  background: var(--secondary);
+}
+
+.more-menu button.danger {
+  color: var(--destructive);
 }
 
 .account-page {

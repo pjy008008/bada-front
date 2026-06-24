@@ -87,12 +87,16 @@ export interface ApiPost {
 export interface ApiComment {
   commentId?: number | string;
   id?: number | string;
+  parentCommentId?: number | string | null;
   content: string;
+  status?: string;
   createdAt?: string;
+  updatedAt?: string;
   author?: string;
   nickname?: string;
-  writer?: ApiUser & { writerId?: number | string };
+  writer?: ApiUser & { writerId?: number | string; displayName?: string; name?: string };
   user?: ApiUser;
+  children?: ApiComment[];
 }
 
 export interface AiChatResponse {
@@ -351,7 +355,7 @@ export const postApi = {
     const { data } = await apiClient.get(`/posts/${postId}/comments`);
     return extractList<ApiComment>(data);
   },
-  async createComment(postId: string, body: { content: string }) {
+  async createComment(postId: string, body: { content: string; parentCommentId?: string | null }) {
     const { data } = await apiClient.post(`/posts/${postId}/comments`, body);
     return unwrap<ApiComment>(data);
   },

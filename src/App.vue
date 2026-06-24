@@ -58,9 +58,15 @@ type CommunityPost = {
 }
 type CommunityComment = {
   id: string
+  parentId?: string | null
   content: string
+  status?: string
   createdAt: string
+  updatedAt?: string
   author: string
+  authorId?: string
+  authorEmail?: string
+  children: CommunityComment[]
 }
 type Toast = {
   show: boolean
@@ -114,6 +120,7 @@ const postImageFiles = ref<File[]>([])
 const postImageInput = ref<HTMLInputElement | null>(null)
 const commentDrafts = reactive<Record<string, string>>({})
 const openPostId = ref<string | null>(null)
+const openCommentMenuId = ref<string | null>(null)
 const selectedImageUrl = ref('')
 const postImageSlides = reactive<Record<string, number>>({})
 const favoriteIds = ref<Set<string>>(new Set())
@@ -904,11 +911,18 @@ function loadCommunity() {
 }
 
 function normalizeStoredPost(post: CommunityPost): CommunityPost {
-  const comments = post.comments ?? []
+  const comments = (post.comments ?? []).map(normalizeStoredComment)
   return {
     ...post,
-    commentCount: post.commentCount ?? comments.length,
+    commentCount: post.commentCount ?? countComments(comments),
     comments,
+  }
+}
+
+function normalizeStoredComment(comment: CommunityComment): CommunityComment {
+  return {
+    ...comment,
+    children: (comment.children ?? []).map(normalizeStoredComment),
   }
 }
 
@@ -981,18 +995,29 @@ function syncFavoriteIds(spots: Spot[]) {
 
 async function togglePost(post: CommunityPost) {
   openPostId.value = openPostId.value === post.id ? null : post.id
-  if (openPostId.value !== post.id || post.comments.length) return
+  openCommentMenuId.value = null
+  if (openPostId.value !== post.id) return
   try {
-    post.comments = (await postApi.comments(post.id)).map(mapComment)
-    saveCommunity()
-    apiState.error = ''
+    await refreshPostComments(post)
   } catch (error) {
     apiState.error = apiErrorMessage(error)
+    showToast(apiErrorMessage(error), 'error')
   }
+}
+
+async function refreshPostComments(post: CommunityPost) {
+  post.comments = (await postApi.comments(post.id)).map(mapComment)
+  post.commentCount = countComments(post.comments)
+  saveCommunity()
+  apiState.error = ''
 }
 
 function saveCommunity() {
   localStorage.setItem('marinepro-community', JSON.stringify(community.value))
+}
+
+function toggleCommentMenu(commentId: string) {
+  openCommentMenuId.value = openCommentMenuId.value === commentId ? null : commentId
 }
 
 async function submitPost() {
@@ -1067,20 +1092,15 @@ async function submitComment(post: CommunityPost) {
   const draft = commentDrafts[post.id]?.trim()
   if (!draft) return
   try {
-    const created = await postApi.createComment(post.id, { content: draft.slice(0, 1000) })
-    post.comments.push(mapComment(created))
+    await postApi.createComment(post.id, { content: draft.slice(0, 1000), parentCommentId: null })
+    await refreshPostComments(post)
     apiState.error = ''
   } catch (error) {
     apiState.error = apiErrorMessage(error)
-    post.comments.push({
-      id: crypto.randomUUID(),
-      content: draft.slice(0, 1000),
-      createdAt: new Date().toISOString(),
-      author: user.name,
-    })
+    showToast(apiErrorMessage(error), 'error')
+    return
   }
   commentDrafts[post.id] = ''
-  post.commentCount = post.comments.length
   saveCommunity()
   showToast('댓글이 등록되었습니다.')
 }
@@ -1125,29 +1145,34 @@ async function editPost(post: CommunityPost) {
   showToast('게시글이 수정되었습니다.')
 }
 
-async function editComment(comment: CommunityComment) {
+async function editComment(post: CommunityPost, comment: CommunityComment) {
+  openCommentMenuId.value = null
   const content = window.prompt('수정할 댓글을 입력하세요.', comment.content)?.trim()
   if (!content) return
   try {
-    Object.assign(comment, mapComment(await postApi.updateComment(comment.id, { content })))
+    await postApi.updateComment(comment.id, { content })
+    await refreshPostComments(post)
     apiState.error = ''
   } catch (error) {
-    comment.content = content
     apiState.error = apiErrorMessage(error)
+    showToast(apiErrorMessage(error), 'error')
+    return
   }
   saveCommunity()
   showToast('댓글이 수정되었습니다.')
 }
 
 async function deleteComment(post: CommunityPost, commentId: string) {
+  openCommentMenuId.value = null
   try {
     await postApi.deleteComment(commentId)
+    await refreshPostComments(post)
     apiState.error = ''
   } catch (error) {
     apiState.error = apiErrorMessage(error)
+    showToast(apiErrorMessage(error), 'error')
+    return
   }
-  post.comments = post.comments.filter((comment) => comment.id !== commentId)
-  post.commentCount = post.comments.length
   saveCommunity()
   showToast('댓글이 삭제되었습니다.')
 }
@@ -1200,7 +1225,7 @@ function mapPost(post: ApiPost, fallbackSpotId: string): CommunityPost {
     authorEmail: writer?.email,
     likeCount: post.likeCount ?? 0,
     liked: post.liked ?? false,
-    commentCount: post.commentCount ?? post.comments?.length ?? 0,
+    commentCount: post.commentCount ?? countComments(post.comments?.map(mapComment) ?? []),
     comments: post.comments?.map(mapComment) ?? [],
   }
 }
@@ -1210,6 +1235,13 @@ function canManagePost(post: CommunityPost) {
   if (post.authorId && user.id) return post.authorId === user.id
   if (post.authorEmail) return post.authorEmail === user.email
   return post.author === user.name
+}
+
+function canManageComment(comment: CommunityComment) {
+  if (!user.loggedIn || isDeletedComment(comment)) return false
+  if (comment.authorId && user.id) return comment.authorId === user.id
+  if (comment.authorEmail) return comment.authorEmail === user.email
+  return comment.author === user.name
 }
 
 function normalizePostImageUrls(post: ApiPost) {
@@ -1241,12 +1273,42 @@ function normalizeImageUrl(value: string) {
 }
 
 function mapComment(comment: ApiComment): CommunityComment {
+  const writer = comment.writer ?? comment.user
+  const author = comment.author
+    ?? comment.nickname
+    ?? comment.writer?.nickname
+    ?? comment.writer?.displayName
+    ?? comment.writer?.name
+    ?? comment.user?.nickname
+    ?? '익명'
   return {
     id: String(comment.commentId ?? comment.id ?? crypto.randomUUID()),
+    parentId: comment.parentCommentId == null ? null : String(comment.parentCommentId),
     content: comment.content,
+    status: comment.status,
     createdAt: comment.createdAt ?? new Date().toISOString(),
-    author: comment.author ?? comment.nickname ?? comment.writer?.nickname ?? comment.user?.nickname ?? '익명',
+    updatedAt: comment.updatedAt,
+    author,
+    authorId: comment.writer?.writerId != null
+      ? String(comment.writer.writerId)
+      : writer?.userId != null
+        ? String(writer.userId)
+        : undefined,
+    authorEmail: writer?.email,
+    children: comment.children?.map(mapComment) ?? [],
   }
+}
+
+function countComments(comments: CommunityComment[]): number {
+  return comments.reduce((sum, comment) => sum + 1 + countComments(comment.children), 0)
+}
+
+function isDeletedComment(comment: CommunityComment) {
+  return comment.status?.toUpperCase() === 'DELETED' || comment.content.includes('삭제된 댓글')
+}
+
+function commentAvatar(comment: CommunityComment) {
+  return (comment.author || '익').charAt(0).toUpperCase()
 }
 
 function loadUser() {
@@ -1894,7 +1956,7 @@ function titleForPage() {
             <div><h3>{{ post.title }}</h3><p>{{ post.author }} · {{ fmt(post.createdAt) }}</p></div>
             <div class="post-actions">
               <button
-                class="icon-action like-action"
+                class="post-like-action"
                 :class="{ active: post.liked }"
                 type="button"
                 :aria-pressed="post.liked"
@@ -1906,28 +1968,15 @@ function titleForPage() {
                 </svg>
                 <span>{{ post.likeCount }}</span>
               </button>
-              <button
-                v-if="canManagePost(post)"
-                class="icon-action edit-action"
-                type="button"
-                aria-label="게시글 수정"
-                @click="editPost(post)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 20h4.2L18.7 9.5a2 2 0 0 0 0-2.8l-1.4-1.4a2 2 0 0 0-2.8 0L4 15.8V20Zm11.9-13.3 1.4 1.4" />
-                </svg>
-              </button>
-              <button
-                v-if="canManagePost(post)"
-                class="icon-action delete-action"
-                type="button"
-                aria-label="게시글 삭제"
-                @click="deletePost(post.id)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5 7h14M10 11v6m4-6v6M9 7l1-3h4l1 3m-8 0 1 13h8l1-13" />
-                </svg>
-              </button>
+              <div v-if="canManagePost(post)" class="more-menu-wrap">
+                <button class="more-action" type="button" aria-label="게시글 메뉴" @click="toggleCommentMenu(`post-${post.id}`)">
+                  <span aria-hidden="true"></span>
+                </button>
+                <div v-if="openCommentMenuId === `post-${post.id}`" class="more-menu">
+                  <button type="button" @click="openCommentMenuId = null; editPost(post)">수정</button>
+                  <button type="button" class="danger" @click="openCommentMenuId = null; deletePost(post.id)">삭제</button>
+                </div>
+              </div>
             </div>
           </div>
           <p>{{ post.content }}</p>
@@ -1972,21 +2021,40 @@ function titleForPage() {
           <div v-if="openPostId === post.id" class="comments">
             <p v-if="!post.comments.length" class="muted">아직 댓글이 없습니다.</p>
             <div v-for="comment in post.comments" :key="comment.id" class="comment">
-              <span class="comment-avatar">{{ comment.author.charAt(0).toUpperCase() }}</span>
+              <span class="comment-avatar">{{ commentAvatar(comment) }}</span>
               <div class="comment-body">
-                <div class="comment-meta"><strong>{{ comment.author }}</strong><span>{{ fmt(comment.createdAt) }}</span></div>
+                <div class="comment-head">
+                  <div class="comment-meta"><strong>{{ comment.author }}</strong><span>{{ fmt(comment.createdAt) }}</span></div>
+                  <div v-if="canManageComment(comment)" class="more-menu-wrap">
+                    <button class="more-action" type="button" aria-label="댓글 메뉴" @click="toggleCommentMenu(comment.id)">
+                      <span aria-hidden="true"></span>
+                    </button>
+                    <div v-if="openCommentMenuId === comment.id" class="more-menu">
+                      <button type="button" @click="editComment(post, comment)">수정</button>
+                      <button type="button" class="danger" @click="deleteComment(post, comment.id)">삭제</button>
+                    </div>
+                  </div>
+                </div>
                 <p>{{ comment.content }}</p>
-                <div v-if="user.loggedIn && comment.author === user.name" class="comment-actions">
-                  <button class="icon-action edit-action" type="button" aria-label="댓글 수정" @click="editComment(comment)">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M4 20h4.2L18.7 9.5a2 2 0 0 0 0-2.8l-1.4-1.4a2 2 0 0 0-2.8 0L4 15.8V20Zm11.9-13.3 1.4 1.4" />
-                    </svg>
-                  </button>
-                  <button class="icon-action delete-action" type="button" aria-label="댓글 삭제" @click="deleteComment(post, comment.id)">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M5 7h14M10 11v6m4-6v6M9 7l1-3h4l1 3m-8 0 1 13h8l1-13" />
-                    </svg>
-                  </button>
+                <div v-if="comment.children.length" class="comment-children">
+                  <div v-for="child in comment.children" :key="child.id" class="comment reply">
+                    <span class="comment-avatar">{{ commentAvatar(child) }}</span>
+                    <div class="comment-body">
+                      <div class="comment-head">
+                        <div class="comment-meta"><strong>{{ child.author }}</strong><span>{{ fmt(child.createdAt) }}</span></div>
+                        <div v-if="canManageComment(child)" class="more-menu-wrap">
+                          <button class="more-action" type="button" aria-label="댓글 메뉴" @click="toggleCommentMenu(child.id)">
+                            <span aria-hidden="true"></span>
+                          </button>
+                          <div v-if="openCommentMenuId === child.id" class="more-menu">
+                            <button type="button" @click="editComment(post, child)">수정</button>
+                            <button type="button" class="danger" @click="deleteComment(post, child.id)">삭제</button>
+                          </div>
+                        </div>
+                      </div>
+                      <p>{{ child.content }}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
