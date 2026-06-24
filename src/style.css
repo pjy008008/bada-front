@@ -2077,6 +2077,22 @@ textarea:focus {
   gap: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
+  transform-origin: top;
+}
+
+.comments-panel-enter-active,
+.comments-panel-leave-active {
+  overflow: hidden;
+  transition:
+    height 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 170ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.comments-panel-enter-from,
+.comments-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 
 .comment {

@@ -994,11 +994,14 @@ function syncFavoriteIds(spots: Spot[]) {
 }
 
 async function togglePost(post: CommunityPost) {
-  openPostId.value = openPostId.value === post.id ? null : post.id
   openCommentMenuId.value = null
-  if (openPostId.value !== post.id) return
+  if (openPostId.value === post.id) {
+    openPostId.value = null
+    return
+  }
   try {
     await refreshPostComments(post)
+    openPostId.value = post.id
   } catch (error) {
     apiState.error = apiErrorMessage(error)
     showToast(apiErrorMessage(error), 'error')
@@ -1309,6 +1312,44 @@ function isDeletedComment(comment: CommunityComment) {
 
 function commentAvatar(comment: CommunityComment) {
   return (comment.author || '익').charAt(0).toUpperCase()
+}
+
+function beforeCommentsEnter(el: Element) {
+  const node = el as HTMLElement
+  node.style.height = '0'
+  node.style.opacity = '0'
+  node.style.transform = 'translateY(-6px)'
+}
+
+function commentsEnter(el: Element) {
+  const node = el as HTMLElement
+  node.style.height = '0'
+  void node.offsetHeight
+  node.style.height = `${node.scrollHeight}px`
+  node.style.opacity = '1'
+  node.style.transform = 'translateY(0)'
+}
+
+function afterCommentsEnter(el: Element) {
+  const node = el as HTMLElement
+  node.style.height = 'auto'
+  node.style.overflow = ''
+}
+
+function beforeCommentsLeave(el: Element) {
+  const node = el as HTMLElement
+  node.style.height = `${node.scrollHeight}px`
+  node.style.opacity = '1'
+  node.style.transform = 'translateY(0)'
+  node.style.overflow = 'hidden'
+}
+
+function commentsLeave(el: Element) {
+  const node = el as HTMLElement
+  void node.offsetHeight
+  node.style.height = '0'
+  node.style.opacity = '0'
+  node.style.transform = 'translateY(-6px)'
 }
 
 function loadUser() {
@@ -2018,51 +2059,60 @@ function titleForPage() {
           <button class="comment-toggle" type="button" @click="togglePost(post)">
             {{ openPostId === post.id ? '댓글 숨기기' : `댓글 보기 (${post.commentCount})` }}
           </button>
-          <div v-if="openPostId === post.id" class="comments">
-            <p v-if="!post.comments.length" class="muted">아직 댓글이 없습니다.</p>
-            <div v-for="comment in post.comments" :key="comment.id" class="comment">
-              <span class="comment-avatar">{{ commentAvatar(comment) }}</span>
-              <div class="comment-body">
-                <div class="comment-head">
-                  <div class="comment-meta"><strong>{{ comment.author }}</strong><span>{{ fmt(comment.createdAt) }}</span></div>
-                  <div v-if="canManageComment(comment)" class="more-menu-wrap">
-                    <button class="more-action" type="button" aria-label="댓글 메뉴" @click="toggleCommentMenu(comment.id)">
-                      <span aria-hidden="true"></span>
-                    </button>
-                    <div v-if="openCommentMenuId === comment.id" class="more-menu">
-                      <button type="button" @click="editComment(post, comment)">수정</button>
-                      <button type="button" class="danger" @click="deleteComment(post, comment.id)">삭제</button>
+          <Transition
+            name="comments-panel"
+            @before-enter="beforeCommentsEnter"
+            @enter="commentsEnter"
+            @after-enter="afterCommentsEnter"
+            @before-leave="beforeCommentsLeave"
+            @leave="commentsLeave"
+          >
+            <div v-if="openPostId === post.id" class="comments">
+              <p v-if="!post.comments.length" class="muted">아직 댓글이 없습니다.</p>
+              <div v-for="comment in post.comments" :key="comment.id" class="comment">
+                <span class="comment-avatar">{{ commentAvatar(comment) }}</span>
+                <div class="comment-body">
+                  <div class="comment-head">
+                    <div class="comment-meta"><strong>{{ comment.author }}</strong><span>{{ fmt(comment.createdAt) }}</span></div>
+                    <div v-if="canManageComment(comment)" class="more-menu-wrap">
+                      <button class="more-action" type="button" aria-label="댓글 메뉴" @click="toggleCommentMenu(comment.id)">
+                        <span aria-hidden="true"></span>
+                      </button>
+                      <div v-if="openCommentMenuId === comment.id" class="more-menu">
+                        <button type="button" @click="editComment(post, comment)">수정</button>
+                        <button type="button" class="danger" @click="deleteComment(post, comment.id)">삭제</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <p>{{ comment.content }}</p>
-                <div v-if="comment.children.length" class="comment-children">
-                  <div v-for="child in comment.children" :key="child.id" class="comment reply">
-                    <span class="comment-avatar">{{ commentAvatar(child) }}</span>
-                    <div class="comment-body">
-                      <div class="comment-head">
-                        <div class="comment-meta"><strong>{{ child.author }}</strong><span>{{ fmt(child.createdAt) }}</span></div>
-                        <div v-if="canManageComment(child)" class="more-menu-wrap">
-                          <button class="more-action" type="button" aria-label="댓글 메뉴" @click="toggleCommentMenu(child.id)">
-                            <span aria-hidden="true"></span>
-                          </button>
-                          <div v-if="openCommentMenuId === child.id" class="more-menu">
-                            <button type="button" @click="editComment(post, child)">수정</button>
-                            <button type="button" class="danger" @click="deleteComment(post, child.id)">삭제</button>
+                  <p>{{ comment.content }}</p>
+                  <div v-if="comment.children.length" class="comment-children">
+                    <div v-for="child in comment.children" :key="child.id" class="comment reply">
+                      <span class="comment-avatar">{{ commentAvatar(child) }}</span>
+                      <div class="comment-body">
+                        <div class="comment-head">
+                          <div class="comment-meta"><strong>{{ child.author }}</strong><span>{{ fmt(child.createdAt) }}</span></div>
+                          <div v-if="canManageComment(child)" class="more-menu-wrap">
+                            <button class="more-action" type="button" aria-label="댓글 메뉴" @click="toggleCommentMenu(child.id)">
+                              <span aria-hidden="true"></span>
+                            </button>
+                            <div v-if="openCommentMenuId === child.id" class="more-menu">
+                              <button type="button" @click="editComment(post, child)">수정</button>
+                              <button type="button" class="danger" @click="deleteComment(post, child.id)">삭제</button>
+                            </div>
                           </div>
                         </div>
+                        <p>{{ child.content }}</p>
                       </div>
-                      <p>{{ child.content }}</p>
                     </div>
                   </div>
                 </div>
               </div>
+              <form v-if="user.loggedIn" @submit.prevent="submitComment(post)">
+                <input v-model="commentDrafts[post.id]" maxlength="1000" placeholder="댓글을 입력하세요" />
+                <button class="btn primary small" type="submit">댓글</button>
+              </form>
             </div>
-            <form v-if="user.loggedIn" @submit.prevent="submitComment(post)">
-              <input v-model="commentDrafts[post.id]" maxlength="1000" placeholder="댓글을 입력하세요" />
-              <button class="btn primary small" type="submit">댓글</button>
-            </form>
-          </div>
+          </Transition>
         </article>
       </section>
     </main>
