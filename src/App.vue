@@ -36,8 +36,10 @@ import {
   type ApiUser,
 } from './lib/api'
 import ChatbotWidget from './components/chat/ChatbotWidget.vue'
+import SiteHeader from './components/layout/SiteHeader.vue'
 import LeafletMap from './components/LeafletMap.vue'
 import type { CommunityComment, CommunityPost } from './types/community'
+import type { Page } from './types/navigation'
 import {
   aiRecommendationReason,
   analysisSummary,
@@ -50,7 +52,6 @@ import {
   summary,
 } from './utils/spot-display'
 
-type Page = 'home' | 'all' | 'spot' | 'auth' | 'me' | 'settings'
 type Toast = {
   show: boolean
   message: string
@@ -1349,33 +1350,16 @@ function titleForPage() {
       <img :src="selectedImageUrl" alt="" />
     </div>
 
-    <nav class="site-header">
-      <button class="brand" type="button" @click="navigate('/')">바다모여</button>
-      <div class="nav-links">
-        <button :class="{ active: page === 'home' }" type="button" @click="navigate('/')">대시보드</button>
-        <button :class="{ active: page === 'all' }" type="button" @click="goAll()">모두 보기</button>
-      </div>
-      <form class="header-search" @submit.prevent="submitHeaderSearch">
-        <span>Search</span>
-        <input v-model="headerQuery" type="search" placeholder="스팟 또는 지역 검색..." />
-      </form>
-      <button v-if="!user.loggedIn" class="btn primary small" type="button" @click="navigate('/auth')">로그인</button>
-      <div v-else class="profile-menu">
-        <button class="avatar" type="button" aria-label="프로필 메뉴" @click="profileMenuOpen = !profileMenuOpen">
-          <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" />
-          <span v-else>{{ user.name.charAt(0).toUpperCase() }}</span>
-        </button>
-        <div v-if="profileMenuOpen" class="profile-popover">
-          <div class="profile-summary">
-            <strong>{{ user.name || '사용자' }}</strong>
-            <span>{{ user.email }}</span>
-          </div>
-          <button type="button" @click="navigate('/settings')">설정</button>
-          <button type="button" @click="navigate('/me')">내 활동 보기</button>
-          <button type="button" @click="signOut">로그아웃</button>
-        </div>
-      </div>
-    </nav>
+    <SiteHeader
+      v-model:header-query="headerQuery"
+      v-model:profile-menu-open="profileMenuOpen"
+      :page="page"
+      :user="user"
+      @go-all="goAll"
+      @navigate="navigate"
+      @sign-out="signOut"
+      @submit-search="submitHeaderSearch"
+    />
 
     <div v-if="apiState.loading || apiState.error" class="api-status" :class="{ error: apiState.error }">
       <span>{{ apiState.loading ? `API 연결 중 · ${API_BASE_URL}` : `API 오류 · ${apiState.error}` }}</span>
