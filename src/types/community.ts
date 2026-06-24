@@ -1,6 +1,8 @@
 export type CommunityPost = {
   id: string
   spotId: string
+  spotName?: string
+  region?: string
   title: string
   content: string
   imageUrl: string | null

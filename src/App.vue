@@ -826,6 +826,7 @@ function closeCommunityPost() {
 }
 
 function communitySpotLabel(post: CommunityPost) {
+  if (post.spotName) return post.region ? `${post.spotName} · ${post.region}` : post.spotName
   const spot = getSpot(post.spotId)
   return spot ? spot.name : post.spotId || '스팟 정보 없음'
 }
@@ -1087,8 +1088,10 @@ function mapPost(post: ApiPost, fallbackSpotId: string): CommunityPost {
   return {
     id: String(post.postId ?? post.id ?? crypto.randomUUID()),
     spotId: String(post.spotId ?? fallbackSpotId),
+    spotName: post.spotName,
+    region: post.region,
     title: post.title ?? '제목 없음',
-    content: post.content ?? '',
+    content: post.content ?? post.contentPreview ?? '',
     imageUrl: imageUrls[0] ?? null,
     imageUrls,
     createdAt: post.createdAt ?? new Date().toISOString(),

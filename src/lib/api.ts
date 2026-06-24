@@ -68,8 +68,11 @@ export interface ApiPost {
   postId?: number | string;
   id?: number | string;
   spotId?: number | string;
+  spotName?: string;
+  region?: string;
   title?: string;
   content?: string;
+  contentPreview?: string;
   imageUrl?: string | null;
   imageUrls?: string[];
   thumbnailUrl?: string | null;
@@ -319,7 +322,7 @@ export const aiApi = {
 
 export const postApi = {
   async feed(sort: "popular" | "latest") {
-    const { data } = await apiClient.get("/posts", { params: { sort, page: 1, pageSize: 100 } });
+    const { data } = await apiClient.get("/posts", { params: { sort, page: 1, pageSize: 10 } });
     return extractList<ApiPost>(data);
   },
   async list(spotId: string) {
