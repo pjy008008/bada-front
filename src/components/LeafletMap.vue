@@ -255,7 +255,7 @@ function escapeHtml(value: string) {
           :disabled="radarLoading || radarUnavailable"
           @click="toggleRadarLayer"
         >
-          {{ radarLoading ? '로딩 중' : radarUnavailable ? '레이더 오류' : '레이더' }}
+          {{ radarLoading ? '로딩 중' : radarUnavailable ? '레이더 오류' : '비·구름' }}
         </button>
         <button
           type="button"
