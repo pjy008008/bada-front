@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   EXPERIENCE_DESC,
   EXPERIENCE_LABELS,
@@ -22,7 +22,6 @@ import {
 } from './lib/spot-utils'
 import {
   API_BASE_URL,
-  aiApi,
   authApi,
   clearAccessToken,
   currentApiTimeSlot,
@@ -37,6 +36,7 @@ import {
   type ApiPost,
   type ApiUser,
 } from './lib/api'
+import ChatbotWidget from './components/chat/ChatbotWidget.vue'
 import LeafletMap from './components/LeafletMap.vue'
 
 type Page = 'home' | 'all' | 'spot' | 'auth' | 'me' | 'settings'
@@ -72,12 +72,6 @@ type Toast = {
   show: boolean
   message: string
   tone: 'success' | 'error'
-}
-type ChatMessage = {
-  id: number
-  role: 'user' | 'assistant'
-  content: string
-  createdAt: string
 }
 
 const VALID_EXP: ExperienceKey[] = ['travel', 'surfing', 'fishing', 'scuba', 'mudflat', 'swimming']
@@ -133,20 +127,7 @@ const authMessage = ref('')
 const apiState = reactive({ loading: false, error: '' })
 const toast = reactive<Toast>({ show: false, message: '', tone: 'success' })
 const spotDetailLoading = ref(false)
-const chatOpen = ref(false)
-const chatDraft = ref('')
-const chatLoading = ref(false)
-const chatMessagesEl = ref<HTMLDivElement | null>(null)
-const chatMessages = ref<ChatMessage[]>([
-  {
-    id: 1,
-    role: 'assistant',
-    content: '궁금한 날짜, 지역, 체험을 알려주시면 바다모여 예보를 기준으로 짧게 답변해 드릴게요.',
-    createdAt: new Date().toISOString(),
-  },
-])
 let toastTimer: number | undefined
-let chatMessageId = 1
 let homeLoadToken = 0
 const remoteSpots = reactive<Record<ExperienceKey, Spot[]>>({
   travel: [],
@@ -278,10 +259,6 @@ watch([page, spotId, listDate], () => {
 
 watch(spotTimeSlot, () => {
   if (page.value === 'spot' && spotId.value) void loadSpotDetail(spotId.value)
-})
-
-watch([() => chatMessages.value.length, chatLoading], () => {
-  void scrollChatToBottom()
 })
 
 function applyRoute() {
@@ -1547,61 +1524,6 @@ function fmt(date: string) {
   return `${dt.getMonth() + 1}/${dt.getDate()} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
 }
 
-function chatTime(date: string) {
-  const dt = new Date(date)
-  return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
-}
-
-function normalizeChatContent(content: string) {
-  const text = content.trim()
-  if (text.toLowerCase().includes('failed to execute gms function call')) {
-    return '요청하신 조건에 맞는 예보 정보를 찾지 못했습니다. 날짜, 지역, 체험 종류를 조금 더 구체적으로 입력해 주세요.'
-  }
-  return text || '답변을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.'
-}
-
-function toggleChat() {
-  chatOpen.value = !chatOpen.value
-  if (chatOpen.value) void scrollChatToBottom()
-}
-
-async function scrollChatToBottom() {
-  await nextTick()
-  if (chatMessagesEl.value) chatMessagesEl.value.scrollTop = chatMessagesEl.value.scrollHeight
-}
-
-function onChatKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Enter' || event.shiftKey) return
-  event.preventDefault()
-  void submitChat()
-}
-
-async function submitChat() {
-  const message = chatDraft.value.trim()
-  if (!message || chatLoading.value) return
-  chatDraft.value = ''
-  chatMessages.value.push({ id: ++chatMessageId, role: 'user', content: message, createdAt: new Date().toISOString() })
-  chatLoading.value = true
-  try {
-    const result = await aiApi.chat(message)
-    chatMessages.value.push({
-      id: ++chatMessageId,
-      role: 'assistant',
-      content: normalizeChatContent(result.content || ''),
-      createdAt: result.createdAt || new Date().toISOString(),
-    })
-  } catch (error) {
-    chatMessages.value.push({
-      id: ++chatMessageId,
-      role: 'assistant',
-      content: normalizeChatContent(apiErrorMessage(error)),
-      createdAt: new Date().toISOString(),
-    })
-  } finally {
-    chatLoading.value = false
-  }
-}
-
 function submitHeaderSearch() {
   allExp.value = 'travel'
   allSort.value = 'index'
@@ -2328,50 +2250,7 @@ function titleForPage() {
       </section>
     </main>
 
-    <div class="chatbot-widget" :class="{ open: chatOpen }">
-      <Transition name="chat-panel">
-        <section v-if="chatOpen" class="chatbot-panel" aria-label="AI 챗봇">
-          <header>
-            <div>
-              <span>바다모여 AI</span>
-              <strong>예보 기반 추천</strong>
-            </div>
-            <button type="button" aria-label="챗봇 닫기" @click="toggleChat">×</button>
-          </header>
-          <div ref="chatMessagesEl" class="chatbot-messages" role="log" aria-live="polite">
-            <article v-for="message in chatMessages" :key="message.id" class="chat-message" :class="message.role">
-              <p>{{ message.content }}</p>
-              <time>{{ chatTime(message.createdAt) }}</time>
-            </article>
-            <article v-if="chatLoading" class="chat-message assistant loading">
-              <span aria-hidden="true"></span>
-              <p>예보를 확인하고 답변을 작성하는 중입니다.</p>
-            </article>
-          </div>
-          <form class="chatbot-composer" @submit.prevent="submitChat">
-            <textarea
-              v-model="chatDraft"
-              maxlength="2000"
-              rows="2"
-              placeholder="예: 내일 제주 서핑 추천해줘"
-              :disabled="chatLoading"
-              @keydown="onChatKeydown"
-            ></textarea>
-            <button type="submit" :disabled="!chatDraft.trim() || chatLoading" aria-label="메시지 보내기">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 12 20 4l-5.2 16-3.1-6.7L4 12Zm7.9-.8 1.7 3.7 2.5-7.6-7.2 3.6 3 .3Z" />
-              </svg>
-            </button>
-          </form>
-        </section>
-      </Transition>
-      <button class="chatbot-toggle" type="button" :aria-expanded="chatOpen" :aria-label="chatOpen ? 'AI 챗봇 닫기' : 'AI 챗봇 열기'" @click="toggleChat">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M5 4h14a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-6.2L7 21v-4H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3Zm0 2a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h4v2l3.2-2H19a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H5Z" />
-        </svg>
-        <span>AI</span>
-      </button>
-    </div>
+    <ChatbotWidget />
 
     <footer class="footer">
       <span>© 2026 바다모여 — Specialized Maritime Forecasting</span>
