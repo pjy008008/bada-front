@@ -2188,11 +2188,10 @@ function titleForPage() {
     </main>
 
     <div v-if="communityModalPost" class="feed-modal-backdrop" role="dialog" aria-modal="true" @click.self="closeCommunityPost">
-      <section class="feed-modal">
+      <section class="feed-modal" :class="{ 'text-only': !communityModalPost.imageUrl }">
         <button class="feed-modal-close" type="button" aria-label="닫기" @click="closeCommunityPost">×</button>
-        <div class="feed-modal-media">
-          <img v-if="communityModalPost.imageUrl" :src="communityModalPost.imageUrl" alt="" @error="handlePostImageError(communityModalPost)" />
-          <p v-else>{{ communityModalPost.content }}</p>
+        <div v-if="communityModalPost.imageUrl" class="feed-modal-media">
+          <img :src="communityModalPost.imageUrl" alt="" @error="handlePostImageError(communityModalPost)" />
         </div>
         <div class="feed-modal-panel">
           <header>
@@ -2207,7 +2206,7 @@ function titleForPage() {
           </header>
           <div class="feed-modal-content">
             <h2>{{ communityModalPost.title }}</h2>
-            <p v-if="communityModalPost.imageUrl">{{ communityModalPost.content }}</p>
+            <p>{{ communityModalPost.content }}</p>
             <div class="feed-modal-comments">
               <strong>댓글 {{ communityModalPost.comments.length }}</strong>
               <p v-if="!communityModalPost.comments.length" class="muted center">첫 댓글을 남겨보세요.</p>
