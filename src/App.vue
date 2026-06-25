@@ -1130,7 +1130,9 @@ function canManageComment(comment: CommunityComment) {
 
 function normalizePostImageUrls(post: ApiPost) {
   const raw = post as Record<string, unknown>
-  const sources = [raw.imageUrls, raw.images, raw.postImages, raw.imageUrl, raw.thumbnailUrl]
+  const thumbnailUrls = extractImageUrls(raw.thumbnailUrl)
+  if (thumbnailUrls.length) return thumbnailUrls
+  const sources = [raw.imageUrl, raw.imageUrls, raw.images, raw.postImages]
   const urls = sources.flatMap(extractImageUrls)
   return [...new Set(urls)]
 }
@@ -1156,9 +1158,7 @@ function normalizeImageUrlCandidates(value: string) {
   const trimmed = value.trim()
   if (!trimmed) return []
   if (/^(https?:|data:|blob:)/i.test(trimmed)) return [trimmed]
-  const candidates = [new URL(trimmed, API_BASE_URL).href]
-  if (trimmed.startsWith('/')) candidates.push(trimmed)
-  return candidates
+  return [new URL(trimmed, API_BASE_URL).href]
 }
 
 function mapComment(comment: ApiComment): CommunityComment {
